@@ -6,23 +6,43 @@ from geometry_msgs.msg import Twist
 
 
 
+class TurtleBot:
 
-rospy.init_node("speed_publisher")     # inicializace nodu s nazvem nodu
+    def __init__(self):
+        rospy.init_node("speed_publisher")     # inicializace nodu s nazvem nodu
+        self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size = 1) # definice publisheru, ktery bude posilat zpravy a turtlebot bude poslouchat tyto zpravy
+        self.rate = rospy.Rate(2) # posilat zpravy s frekvenci 2 ms 
 
-# definice publisheru, ktery bude posilat zpravy a turtlebot bude poslouchat tyto zpravy
 
-pub = rospy.Publisher('/cmd_vel', Twist, queue_size = 1)
+    def move2goal(self):
+        goal_coord_arr = {"x": 0.0, "y":0.0}     # definice pole souradnic cile
+        orig_coord_arr = {"x": 0.0, "y":0.0}     # definice pole pocatecnich souradnic
 
-rate = rospy.Rate(2)    # posilat zpravy s frekvenci 2 ms
+        # zadani souradnic cile
+        goal_coord_arr["x"] = float(input("Souradnice cile x: "))
+        goal_coord_arr["y"] = float(input("Souradnice cile y: "))
 
-# definice objektu zpravy uvnitr ktereho budou linear a angular values - uhlove a linearni rychlosti turtlebotu
-move = Twist()
+        vel_msg = Twist()   # definice objektu zpravy uvnitr ktereho budou linear a angular values - uhlove a linearni rychlosti turtlebotu
+        
+        i = 0
 
-move.linear.x = 0.5 # pohyb podel osy x s rychlosti 0.5
+        while i<20:
+            vel_msg.linear.x = 0.5 # pohyb podel osy x s rychlosti 0.5
+            self.pub.publish(vel_msg)
+            self.rate.sleep()
+            i += 1
+
+        # podminka dosazeni cile
+        vel_msg.linear.x = 0.0 
+        self.pub.publish(vel_msg)
+
+        rospy.spin()    # ctrl+c zastavi node
+
 
 while not rospy.is_shutdown():
-    pub.publish(move)
-    rate.sleep()
+    x = TurtleBot()
+    x.move2goal()
+
 
 
 
