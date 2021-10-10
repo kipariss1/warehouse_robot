@@ -4,6 +4,14 @@ import rospy
 # importujeme metod "Twist" ktery bude posilat zpravy s tematem geometry_msgs
 from geometry_msgs.msg import Twist
 from math import atan2, pow, sqrt
+from sensor_msgs.msg import LaserScan
+
+
+
+
+def callback(msg):
+    	
+    print(msg)
 
 
 
@@ -11,7 +19,8 @@ class TurtleBot:
 
     def __init__(self):
         rospy.init_node("speed_publisher")     # inicializace nodu s nazvem nodu
-        self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size = 1) # definice publisheru, ktery bude posilat zpravy a turtlebot bude poslouchat tyto zpravy
+        self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size = 1) 	# definice publisheru, ktery bude posilat zpravy a turtlebot bude poslouchat tyto zpravy
+        self.sub = rospy.Subscriber("/scan", LaserScan, callback)		# definice subscriberu, ktery bude sledovat tema /scan
         self.rate = rospy.Rate(2) # posilat zpravy s frekvenci 2 ms 
 
 
@@ -21,6 +30,16 @@ class TurtleBot:
 
     def goal_distance(self, goal_coord_arr, orig_coord_arr):
         return sqrt(pow((goal_coord_arr["x"] - orig_coord_arr["x"]), 2) + pow((goal_coord_arr["y"] - orig_coord_arr["y"]), 2))
+        
+        
+    def obstacle_avoidance(self, dist_from_orig):
+    
+    	# TODO vypocet novych sour + callback 
+    	
+    	pass    	
+    
+    
+    # TODO definovat callback 
 
 
     def move2goal(self):
