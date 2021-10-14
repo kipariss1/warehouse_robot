@@ -58,13 +58,13 @@ class TurtleBot:
                 vel_msg.angular.z = -ang_vel
             else:
                 vel_msg.angular.z = ang_vel
-                self.pub.publish(vel_msg)
-                t1 = rospy.Time.now().to_sec()
-
-            vel_msg.angular.z = 0.0
             self.pub.publish(vel_msg)
+            t1 = rospy.Time.now().to_sec()
 
-            rospy.spin()  # ctrl+c zastavi node
+        vel_msg.angular.z = 0.0
+        self.pub.publish(vel_msg)
+
+        return
 
     def linear_move(self, distance, lin_vel):
 
@@ -80,8 +80,8 @@ class TurtleBot:
             self.rate.sleep()
             t1 = rospy.Time.now().to_sec()
             # podminka prekazky
-            if distance_obst_arr["0 deg"] < 0.5:
-                self.naive_obstacle_avoidance()
+            if distance_obst_arr["0 deg"] < self.safety_boundary:
+                obstacle_avoided = self.naive_obstacle_avoidance()
                 while not obstacle_avoided:
                     obstacle_avoided = self.naive_obstacle_avoidance()
 
@@ -89,7 +89,6 @@ class TurtleBot:
         vel_msg.linear.x = 0.0
         self.pub.publish(vel_msg)
 
-        rospy.spin()  # ctrl+c zastavi node
 
     def naive_obstacle_avoidance(self):
         obstacle_avoided: bool = False  # Flag, that obstacle is avoided
@@ -102,8 +101,6 @@ class TurtleBot:
         self.pub.publish(vel_msg)
 
         self.rotation_move(pi / 2, 0.1)
-
-        rospy.spin()  # ctrl+c zastavi node
 
         return obstacle_avoided
 
