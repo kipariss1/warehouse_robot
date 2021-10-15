@@ -68,6 +68,10 @@ class TurtleBot:
 
     def linear_move(self, distance, lin_vel):
 
+        obstacle_avoided: bool = False
+        curr_length_of_path: float = 0
+        length_of_obstacle: float = 0
+
         vel_msg = Twist()  # definice objektu zpravy uvnitr ktereho budou linear a angular values - uhlove a linearni
         # rychlosti turtlebotu
 
@@ -81,17 +85,26 @@ class TurtleBot:
             t1 = rospy.Time.now().to_sec()
             # podminka prekazky
             if distance_obst_arr["0 deg"] < self.safety_boundary:
-                obstacle_avoided = self.naive_obstacle_avoidance()
+                curr_length_of_path = lin_vel*(t1-t0)
+                obstacle_avoided, _ = self.naive_obstacle_avoidance()
                 while not obstacle_avoided:
-                    obstacle_avoided = self.naive_obstacle_avoidance()
+                    obstacle_avoided, length_of_obstacle = self.naive_obstacle_avoidance()
+                break
 
         # podminka dosazeni cile
         vel_msg.linear.x = 0.0
         self.pub.publish(vel_msg)
 
+        # dojet cil
+        if obstacle_avoided:
+            self.linear_move(distance - curr_length_of_path - length_of_obstacle, self.lin_vel)
+
 
     def naive_obstacle_avoidance(self):
+
         obstacle_avoided: bool = False  # Flag, that obstacle is avoided
+        deviation_from_x: float = 0
+        deviation_from_y: float = 0
 
         vel_msg = Twist()  # definice objektu zpravy uvnitr ktereho budou linear a angular values - uhlove a linearni
         # rychlosti turtlebotu
@@ -100,9 +113,38 @@ class TurtleBot:
         vel_msg.angular.z = 0.0
         self.pub.publish(vel_msg)
 
-        self.rotation_move(pi / 2, 0.1)
+        # otoceni vlevo
+        self.rotation_move(pi/2, self.ang_vel)
 
-        return obstacle_avoided
+        # jizda pokud neprejede prekazku
+        while distance_obst_arr["270 deg"] <= self.safety_boundary:
+            self.linear_move(0.7, self.lin_vel)
+            deviation_from_y += 0.7
+
+        # otoceni vlevo
+        self.rotation_move(-pi / 2, self.ang_vel)
+
+        # jizda pokud zase nedojede do prekazky
+        while distance_obst_arr["270 deg"] > self.safety_boundary:
+            self.linear_move(0.7, self.lin_vel)
+
+        # jizda pokud zase neprejede prekazku
+        while distance_obst_arr["270 deg"] <= self.safety_boundary:
+            self.linear_move(0.7, self.lin_vel)
+            deviation_from_x += 0.7
+
+        # otoceni vlevo
+        self.rotation_move(-pi / 2, self.ang_vel)
+
+        # jizda zpadky na cestu
+        self.linear_move(deviation_from_y, self.lin_vel)
+
+        # otoceni na spravny smer
+        self.rotation_move(pi / 2, self.ang_vel)
+
+        obstacle_avoided = True
+
+        return obstacle_avoided, deviation_from_x
 
     def move2goal(self):
         goal_coord_arr: Dict[str, Any] = {"x": 0.0, "y": 0.0}  # definice pole souradnic cile
