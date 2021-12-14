@@ -32,7 +32,7 @@ class TurtleBot:
 
         self.rate = rospy.Rate(2)  # posilat zpravy s frekvenci 2 ms
 
-        self.safety_boundary = 0.5
+        self.safety_boundary = 0.2
         self.lin_vel = 0.1
         self.ang_vel = 0.1
 
