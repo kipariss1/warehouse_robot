@@ -107,9 +107,6 @@ class TurtleBot:
             if obstacle_avoided:
                 self.linear_move(distance - curr_length_of_path - length_of_obstacle, self.lin_vel)
 
-        except rospy.ROSInterruptException:
-            return None
-
     def naive_obstacle_avoidance(self):
 
         try:
@@ -128,7 +125,7 @@ class TurtleBot:
             self.rotation_move(pi/2, self.ang_vel)
 
             # jizda pokud neprejede prekazku
-            while distance_obst_arr["270 deg"] <= self.safety_boundary:
+            while distance_obst_arr["270 deg"] <= self.safety_boundary or rospy.ROSInterruptException:
                 self.linear_move(0.7, self.lin_vel)
                 deviation_from_y += 0.7
 
@@ -136,11 +133,11 @@ class TurtleBot:
             self.rotation_move(-pi / 2, self.ang_vel)
 
             # jizda pokud zase nedojede do prekazky
-            while distance_obst_arr["270 deg"] > self.safety_boundary:
+            while distance_obst_arr["270 deg"] > self.safety_boundary or rospy.ROSInterruptException:
                 self.linear_move(0.7, self.lin_vel)
 
             # jizda pokud zase neprejede prekazku
-            while distance_obst_arr["270 deg"] <= self.safety_boundary:
+            while distance_obst_arr["270 deg"] <= self.safety_boundary or rospy.ROSInterruptException:
                 self.linear_move(0.7, self.lin_vel)
                 deviation_from_x += 0.7
 
@@ -155,37 +152,28 @@ class TurtleBot:
 
             obstacle_avoided = True
 
-        except rospy.ROSInterruptException:
-            return None
-
-        return obstacle_avoided, deviation_from_x
-
     def move2goal(self):
 
-        try:
-            goal_coord_arr: Dict[str, Any] = {"x": 0.0, "y": 0.0}  # definice pole souradnic cile
-            orig_coord_arr: Dict[str, Any] = {"x": 0.0, "y": 0.0}  # definice pole pocatecnich souradnic
+        goal_coord_arr: Dict[str, Any] = {"x": 0.0, "y": 0.0}  # definice pole souradnic cile
+        orig_coord_arr: Dict[str, Any] = {"x": 0.0, "y": 0.0}  # definice pole pocatecnich souradnic
 
-            # zadani souradnic cile
-            goal_coord_arr["x"] = float(input("Souradnice cile x: "))
-            goal_coord_arr["y"] = float(input("Souradnice cile y: "))
+        # zadani souradnic cile
+        goal_coord_arr["x"] = float(input("Souradnice cile x: "))
+        goal_coord_arr["y"] = float(input("Souradnice cile y: "))
 
-            ####OTACENI####
-            angle = self.goal_angle(goal_coord_arr, orig_coord_arr)
+        ####OTACENI####
+        angle = self.goal_angle(goal_coord_arr, orig_coord_arr)
 
-            self.rotation_move(angle, self.ang_vel)
-            ###############
+        self.rotation_move(angle, self.ang_vel)
+        ###############
 
-            #####JIZDA####
-            distance = self.goal_distance(goal_coord_arr, orig_coord_arr)
+        #####JIZDA####
+        distance = self.goal_distance(goal_coord_arr, orig_coord_arr)
 
-            self.linear_move(distance, self.lin_vel)
-            ##############
+        self.linear_move(distance, self.lin_vel)
+        ##############
 
-            # rospy.spin()  # ctrl+c zastavi node
-
-        except rospy.ROSInterruptException:
-            return None
+        rospy.spin()  # ctrl+c zastavi node
 
 
 def main():
@@ -194,7 +182,6 @@ def main():
 
     try:
         x.move2goal()
-        rate.sleep()
     except rospy.ROSInterruptException:
         rospy.logerr("Shutting down a2b_controller")
         sys.exit()
