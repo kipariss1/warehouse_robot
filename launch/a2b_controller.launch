@@ -1,0 +1,4 @@
+<launch>
+  <node pkg="a2b_controller" type="conroller" name="a2b_controller" output="screen">
+  </node>
+</launch>

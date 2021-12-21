@@ -20,7 +20,7 @@ def callback(msg):
 class TurtleBot:
 
     def __init__(self):
-        rospy.init_node("speed_publisher")  # inicializace nodu s nazvem nodu
+        rospy.init_node("controller_py_n")  # inicializace nodu s nazvem nodu
 
         self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=1)  # definice publisheru,
         # ktery bude posilat zpravy a turtlebot
@@ -98,7 +98,6 @@ class TurtleBot:
         # dojet cil
         if obstacle_avoided:
             self.linear_move(distance - curr_length_of_path - length_of_obstacle, self.lin_vel)
-
 
     def naive_obstacle_avoidance(self):
 
