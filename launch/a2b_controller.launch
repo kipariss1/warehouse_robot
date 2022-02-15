@@ -1,4 +1,3 @@
 <launch>
-  <node pkg="a2b_controller" type="conroller" name="a2b_controller" output="screen">
-  </node>
+  <node pkg="a2b_controller" type="controller" name="controller_py_n" output="screen"/>
 </launch>
