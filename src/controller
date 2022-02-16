@@ -20,7 +20,6 @@ def callback(msg):
 class TurtleBot:
 
     def __init__(self):
-        rospy.init_node("controller_py_n")  # inicializace nodu s nazvem nodu
 
         self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=1)  # definice publisheru,
         # ktery bude posilat zpravy a turtlebot
@@ -251,11 +250,22 @@ class TurtleBot:
         self.linear_move(distance, self.lin_vel)
         ##############
 
-        rospy.spin()  # ctrl+c zastavi node
+
+def main():
+
+    rospy.init_node("controller_py_n")  # inicializace nodu s nazvem nodu
+
+    tb = TurtleBot()
+    tb.move2goal()
+    rospy.spin()
 
 
-while not rospy.is_shutdown():
-    print("main loop")
-    x = TurtleBot()
-    x.move2goal()
+if __name__ == '__main__':
+    main()
+
+# rospy.spin()  # ctrl+c zastavi node
+# while not rospy.is_shutdown():
+#     print("main loop")
+#     x = TurtleBot()
+#     x.move2goal()
 
