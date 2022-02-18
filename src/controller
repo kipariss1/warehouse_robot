@@ -134,17 +134,6 @@ class TurtleBot:
 
         print("stop tbot")
 
-        #################
-        ## REDO STOP! ###
-        #################
-        if rospy.is_shutdown():
-            self.stop_tbot()
-            self.rate.sleep()
-            return None
-        #################
-        ## REDO STOP! ###
-        #################
-
         vel_msg = Twist()  # definice objektu zpravy uvnitr ktereho budou linear a angular values - uhlove a linearni
         # rychlosti turtlebotu
 
@@ -257,15 +246,7 @@ def main():
 
     tb = TurtleBot()
     tb.move2goal()
-    rospy.spin()
-
 
 if __name__ == '__main__':
     main()
-
-# rospy.spin()  # ctrl+c zastavi node
-# while not rospy.is_shutdown():
-#     print("main loop")
-#     x = TurtleBot()
-#     x.move2goal()
 
