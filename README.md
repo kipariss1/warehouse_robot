@@ -13,6 +13,7 @@ This is beginning of work on my thesis work for CTU FS
 This is project on developing algorithm for turtlebot, to avoide simple obstacle (like square) mainly in the simulation.
 This algorithm is working poorly even in simulation, but doing it's main goal - obstacle avoidance. Main problem is odometry, which will be 
 fixed with using of SLAM algorithm in the next part of project 'ProjectIII_final'. The following algorithm does not work properly in the real world.
+(ctrl+c is not working in simulation, robot doesn't stop during program. But it's fine, because it stops real Turtlebot3)
 
 ## Illustration of work
 
