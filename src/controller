@@ -3,6 +3,7 @@
 import rospy
 from geometry_msgs.msg import Twist
 from math import atan2, pow, sqrt, pi
+from typing import Any, Dict
 
 
 class TurtleBot:
@@ -27,6 +28,44 @@ class TurtleBot:
         return sqrt(
             pow((goal_coord_arr["x"] - orig_coord_arr["x"]), 2) + pow((goal_coord_arr["y"] - orig_coord_arr["y"]), 2))
 
+    def rotation_move(self, angle):
+
+        t0 = rospy.Time.now().to_sec()  # pro zaznamenani casu
+        t1 = t0
+
+        while (self.ang_vel * (t1 - t0) < abs(angle)) and not rospy.is_shutdown():
+
+            if angle <= 0:
+                self.cmd_vel.angular.z = -self.ang_vel
+            else:
+                self.cmd_vel.angular.z = self.ang_vel
+            self.pub.publish(self.cmd_vel)
+            t1 = rospy.Time.now().to_sec()
+            self.rate.sleep()
+
+        self.cmd_vel.angular.z = 0
+        self.pub.publish(self.cmd_vel)
+        self.rate.sleep()
+
+        return None
+
+    def linear_move(self, distance):
+
+        t0 = rospy.Time.now().to_sec()  # pro zaznamenani casu
+        t1 = t0
+
+        while (self.lin_vel * (t1 - t0) < distance) and not rospy.is_shutdown():
+            self.cmd_vel.linear.x = self.lin_vel  # pohyb podel osy x robota s rychlosti 0.5
+            self.pub.publish(self.cmd_vel)
+            t1 = rospy.Time.now().to_sec()
+            self.rate.sleep()
+
+        self.cmd_vel.linear.x = 0
+        self.pub.publish(self.cmd_vel)
+        self.rate.sleep()
+
+        return None
+
     def move2goal(self):
 
         goal_coord_arr: Dict[str, Any] = {"x": 0.0, "y": 0.0}  # definice pole souradnic cile
@@ -43,41 +82,15 @@ class TurtleBot:
 
             angle = self.goal_angle(goal_coord_arr, orig_coord_arr)
 
-            t0 = rospy.Time.now().to_sec()  # pro zaznamenani casu
-            t1 = t0
-
-            while (self.ang_vel * (t1 - t0) < abs(angle)) and not rospy.is_shutdown():
-
-                if angle <= 0:
-                    self.cmd_vel.angular.z = -self.ang_vel
-                else:
-                    self.cmd_vel.angular.z = self.ang_vel
-                self.pub.publish(self.cmd_vel)
-                t1 = rospy.Time.now().to_sec()
-                self.rate.sleep()
-
-            self.cmd_vel.angular.z = 0
-            self.pub.publish(self.cmd_vel)
-            self.rate.sleep()
+            self.rotation_move(angle)
 
             ## JIZDA ##
 
             distance = self.goal_distance(goal_coord_arr, orig_coord_arr)
 
-            t0 = rospy.Time.now().to_sec()  # pro zaznamenani casu
-            t1 = t0
+            self.linear_move(distance)
 
-            while (self.lin_vel * (t1 - t0) < distance) and not rospy.is_shutdown():
-
-                self.cmd_vel.linear.x = self.lin_vel  # pohyb podel osy x robota s rychlosti 0.5
-                self.pub.publish(self.cmd_vel)
-                t1 = rospy.Time.now().to_sec()
-                self.rate.sleep()
-
-            self.cmd_vel.linear.x = 0
-            self.pub.publish(self.cmd_vel)
-
-            self.rate.sleep()       # nechat v move2goal!
+            self.rate.sleep()
 
             return None
 
