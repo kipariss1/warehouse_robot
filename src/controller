@@ -4,6 +4,15 @@ import rospy
 from geometry_msgs.msg import Twist
 from math import atan2, pow, sqrt, pi
 from typing import Any, Dict
+from sensor_msgs.msg import LaserScan
+
+
+def callback(msg):
+    global distance_obst_arr
+    # globalni dictionary do ktereho se zapisuji hodnoty
+    # ze sensoru, kolik zbylo do prekazky pos uhlem 0, 90
+    distance_obst_arr = {"0 deg": msg.ranges[0], "90 deg": msg.ranges[90], "180 deg": msg.ranges[180],
+                         "270 deg": msg.ranges[270]}
 
 
 class TurtleBot:
@@ -14,10 +23,15 @@ class TurtleBot:
         self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
         self.rate = rospy.Rate(10)                                      # rate of message sending is 10 Hz
 
+        self.sub = rospy.Subscriber('/scan', LaserScan, callback)
+
         self.cmd_vel = Twist()
 
-        self.lin_vel = 0.5
+        self.lin_vel = 0.1
         self.ang_vel = 0.1
+        self.safety_boundary = 0.5
+        self.dx = 0.5
+        self.variance_of_distance = 0.5
 
     @staticmethod  # does not use self in it
     def goal_angle(goal_coord_arr, orig_coord_arr):
@@ -51,6 +65,10 @@ class TurtleBot:
 
     def linear_move(self, distance):
 
+        obstacle_avoided: bool = False
+        curr_length_of_path: float = 0
+        length_of_obstacle: float = 0
+
         t0 = rospy.Time.now().to_sec()  # pro zaznamenani casu
         t1 = t0
 
@@ -58,13 +76,76 @@ class TurtleBot:
             self.cmd_vel.linear.x = self.lin_vel  # pohyb podel osy x robota s rychlosti 0.5
             self.pub.publish(self.cmd_vel)
             t1 = rospy.Time.now().to_sec()
+            # podminka prekazky
+            if distance_obst_arr["0 deg"] < self.safety_boundary:
+                curr_length_of_path = self.lin_vel * (t1 - t0)
+                obstacle_avoided, _ = self.naive_obstacle_avoidance()
+                while not obstacle_avoided:
+                    obstacle_avoided, length_of_obstacle = self.naive_obstacle_avoidance()
+                break
+
             self.rate.sleep()
 
         self.cmd_vel.linear.x = 0
         self.pub.publish(self.cmd_vel)
         self.rate.sleep()
 
+        # dojet cil
+        if obstacle_avoided:
+            self.linear_move(distance - curr_length_of_path - length_of_obstacle)
+
         return None
+
+    def naive_obstacle_avoidance(self):
+
+        print("naive obstacle avoidance")
+
+        obstacle_avoided: bool = False  # Flag, that obstacle is avoided
+        deviation_from_x: float = 0
+        deviation_from_y: float = 0
+
+        self.cmd_vel.linear.x = 0.0
+        self.cmd_vel.angular.z = 0.0
+        self.pub.publish(self.cmd_vel)
+
+        # otoceni vlevo
+        self.rotation_move(pi / 2)
+
+        # jizda pokud neprejede prekazku (pokud je v intervalu bezpecne distance)
+        while (distance_obst_arr["270 deg"] <= (self.safety_boundary + self.variance_of_distance)) \
+                and (distance_obst_arr["270 deg"] >= (self.safety_boundary - self.variance_of_distance))\
+                and not rospy.is_shutdown():
+            self.linear_move(self.dx)
+            deviation_from_y += self.dx
+
+        # otoceni vlevo
+        self.rotation_move(-pi / 2)
+
+        # jizda pokud zase nedojede do prekazky (mimo interval bezpeci)
+        while distance_obst_arr["270 deg"] > (self.safety_boundary + self.variance_of_distance)\
+                and not rospy.is_shutdown():
+            self.linear_move(self.dx)
+            deviation_from_x += self.dx
+
+        # jizda pokud zase neprejede prekazku (pokud je zase v intervalu bezpecne distance)
+        while (distance_obst_arr["270 deg"] <= (self.safety_boundary + self.variance_of_distance))\
+                and (distance_obst_arr["270 deg"] >= (self.safety_boundary - self.variance_of_distance))\
+                and not rospy.is_shutdown():
+            self.linear_move(self.dx)
+            deviation_from_x += self.dx
+
+        # otoceni vpravo
+        self.rotation_move(-pi / 2)
+
+        # jizda zpadky na cestu
+        self.linear_move(deviation_from_y)
+
+        # otoceni na spravny smer
+        self.rotation_move(pi / 2)
+
+        obstacle_avoided = True
+
+        return obstacle_avoided, deviation_from_x
 
     def move2goal(self):
 
