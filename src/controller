@@ -1,235 +1,161 @@
 #! /usr/bin/env python
 
 import rospy
-# importujeme metod "Twist" ktery bude posilat zpravy s tematem geometry_msgs
 from geometry_msgs.msg import Twist
 from math import atan2, pow, sqrt, pi
-# importujeme metod "Laser scan" ktery bude koukat na hodnoty ze senzoru
-from sensor_msgs.msg import LaserScan
 from typing import Any, Dict
+from sensor_msgs.msg import LaserScan
 
 
 def callback(msg):
     global distance_obst_arr
     # globalni dictionary do ktereho se zapisuji hodnoty
-    # ze sensoru, kolik zbylo do prekazky pos uhlem 0, 90
+    # ze sensoru, kolik zbylo do prekazky pod uhlem 0, 90
     distance_obst_arr = {"0 deg": msg.ranges[0], "90 deg": msg.ranges[90], "180 deg": msg.ranges[180],
                          "270 deg": msg.ranges[270]}
 
 
 class TurtleBot:
 
-    def __init__(self):
+    def __init__(self, lin_vel, ang_vel, safety_boundary, dx, variance_of_distance):
 
-        self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=1)  # definice publisheru,
-        # ktery bude posilat zpravy a turtlebot
-        # bude poslouchat zpravy
+        rospy.init_node('controller_py_n')                              # inicializace nodu s nazvem controller_py_n
+        self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=1)     # definice objektu publisheru na tema /cmd_vel
+        self.rate = rospy.Rate(10)                                      # rate of message sending is 10 Hz
 
-        self.sub = rospy.Subscriber("/scan", LaserScan, callback)  # definice subscriberu, ktery bude sledovat
-        # tema /scan, tema s kterou publikuji
-        # senzory turtlebotu
+        self.sub = rospy.Subscriber('/scan', LaserScan, callback)       # definice objektu subskriberu, sledujiciho
+                                                                        # tema /scan (lidar)
 
-        self.rate = rospy.Rate(2)  # posilat zpravy s frekvenci 2 ms
+        self.cmd_vel = Twist()                                          # definice objektu zpravy, obsahujici
+                                                                        # rychlost pro tematum /cmd_vel
 
-        self.safety_boundary = 0.2
-        self.lin_vel = 0.1
-        self.ang_vel = 0.1
+        self.lin_vel = lin_vel                                          # linearni rychlost turtlebotu [m/s]
+        self.ang_vel = ang_vel                                          # rychlost otaceni turtlebotu  [m/s]
+        self.safety_boundary = safety_boundary                          # hranice objezdu prekazky [m]
+        self.dx = dx                                                    # krok, s kterym objizdi prekazku [m]
+        self.variance_of_distance = variance_of_distance                # odchylka of idealni trajektorie
+                                                                        # objezdu prekazky [m] (docela velka
+                                                                        # kvuli odometrii)
 
     @staticmethod  # does not use self in it
-    def goal_angle(goal_coord_arr, orig_coord_arr):
+    def goal_angle(goal_coord_arr, orig_coord_arr):                     # vypocte uhel k cili
         return atan2(goal_coord_arr["x"] - orig_coord_arr["x"], goal_coord_arr["y"] - orig_coord_arr["y"])
 
     @staticmethod
-    def goal_distance(goal_coord_arr, orig_coord_arr):
+    def goal_distance(goal_coord_arr, orig_coord_arr):                  # vypocte distanci do cile
         return sqrt(
             pow((goal_coord_arr["x"] - orig_coord_arr["x"]), 2) + pow((goal_coord_arr["y"] - orig_coord_arr["y"]), 2))
 
-    def rotation_move(self, angle, ang_vel):
-
-        print("Moving angular with", ang_vel, "speed")  # debug
-
-        vel_msg = Twist()  # definice objektu zpravy uvnitr ktereho budou linear a angular values -
-        # uhlove a linearni rychlosti turtlebotu
+    # funkce, realizujici otaceni turtlebotu
+    def rotation_move(self, angle):
 
         t0 = rospy.Time.now().to_sec()  # pro zaznamenani casu
         t1 = t0
 
-        while ang_vel * (t1 - t0) < abs(angle):
-
-            #################
-            ## REDO STOP! ###
-            #################
-            if rospy.is_shutdown():
-                self.stop_tbot()
-                self.rate.sleep()
-                return None
-            #################
-            ## REDO STOP! ###
-            #################
+        while (self.ang_vel * (t1 - t0) < abs(angle)) and not rospy.is_shutdown():
 
             if angle <= 0:
-                vel_msg.angular.z = -ang_vel
+                self.cmd_vel.angular.z = -self.ang_vel
             else:
-                vel_msg.angular.z = ang_vel
-            self.pub.publish(vel_msg)
+                self.cmd_vel.angular.z = self.ang_vel
+            self.pub.publish(self.cmd_vel)
             t1 = rospy.Time.now().to_sec()
             self.rate.sleep()
 
-        vel_msg.angular.z = 0.0
-        self.pub.publish(vel_msg)
+        self.cmd_vel.angular.z = 0
+        self.pub.publish(self.cmd_vel)
         self.rate.sleep()
 
         return None
 
-    def linear_move(self, distance, lin_vel):
-
-        print("Moving linear with", lin_vel, "speed") # debug
+    # funkce realizujici linearni pohyb turtlebotu
+    def linear_move(self, distance):
 
         obstacle_avoided: bool = False
         curr_length_of_path: float = 0
         length_of_obstacle: float = 0
 
-        vel_msg = Twist()  # definice objektu zpravy uvnitr ktereho budou linear a angular values - uhlove a linearni
-        # rychlosti turtlebotu
-
         t0 = rospy.Time.now().to_sec()  # pro zaznamenani casu
         t1 = t0
 
-        while (lin_vel * (t1 - t0) < distance):
-
-            #################
-            ## REDO STOP! ###
-            #################
-            if rospy.is_shutdown():
-                self.stop_tbot()
-                self.rate.sleep()
-                return None
-            #################
-            ## REDO STOP! ###
-            #################
-
-            vel_msg.linear.x = lin_vel  # pohyb podel osy x robota s rychlosti 0.5
-            self.pub.publish(vel_msg)
-            self.rate.sleep()
+        while (self.lin_vel * (t1 - t0) < distance) and not rospy.is_shutdown():
+            self.cmd_vel.linear.x = self.lin_vel  # pohyb podel osy x robota s rychlosti 0.5
+            self.pub.publish(self.cmd_vel)
             t1 = rospy.Time.now().to_sec()
             # podminka prekazky
             if distance_obst_arr["0 deg"] < self.safety_boundary:
-                curr_length_of_path = lin_vel*(t1-t0)
+                curr_length_of_path = self.lin_vel * (t1 - t0)
                 obstacle_avoided, _ = self.naive_obstacle_avoidance()
                 while not obstacle_avoided:
                     obstacle_avoided, length_of_obstacle = self.naive_obstacle_avoidance()
                 break
 
-        # podminka dosazeni cile
-        vel_msg.linear.x = 0.0
-        self.pub.publish(vel_msg)
+            self.rate.sleep()
+
+        self.cmd_vel.linear.x = 0
+        self.pub.publish(self.cmd_vel)
+        self.rate.sleep()
 
         # dojet cil
         if obstacle_avoided:
-            self.linear_move(distance - curr_length_of_path - length_of_obstacle, self.lin_vel)
+            self.linear_move(distance - curr_length_of_path - length_of_obstacle)
 
         return None
 
-    def stop_tbot(self):
-
-        print("stop tbot")
-
-        #################
-        ## REDO STOP! ###
-        #################
-        if rospy.is_shutdown():
-            self.stop_tbot()
-            self.rate.sleep()
-            return None
-        #################
-        ## REDO STOP! ###
-        #################
-
-        vel_msg = Twist()  # definice objektu zpravy uvnitr ktereho budou linear a angular values - uhlove a linearni
-        # rychlosti turtlebotu
-
-        vel_msg.linear.x = 0
-
-        vel_msg.angular.z = 0
-
-        self.pub.publish(vel_msg)
-        self.rate.sleep()
-
-        return None
-
+    # funkce, realizujici jednoduchy algoritmus objezdu prekazky
     def naive_obstacle_avoidance(self):
 
         print("naive obstacle avoidance")
-
-        #################
-        ## REDO STOP! ###
-        #################
-        if rospy.is_shutdown():
-            self.stop_tbot()
-            self.rate.sleep()
-            return None
-        #################
-        ## REDO STOP! ###
-        #################
 
         obstacle_avoided: bool = False  # Flag, that obstacle is avoided
         deviation_from_x: float = 0
         deviation_from_y: float = 0
 
-        vel_msg = Twist()  # definice objektu zpravy uvnitr ktereho budou linear a angular values - uhlove a linearni
-        # rychlosti turtlebotu
-
-        vel_msg.linear.x = 0.0
-        vel_msg.angular.z = 0.0
-        self.pub.publish(vel_msg)
+        self.cmd_vel.linear.x = 0.0
+        self.cmd_vel.angular.z = 0.0
+        self.pub.publish(self.cmd_vel)
 
         # otoceni vlevo
-        self.rotation_move(pi/2, self.ang_vel)
+        self.rotation_move(pi / 2)
 
-        # jizda pokud neprejede prekazku
-        while distance_obst_arr["270 deg"] <= self.safety_boundary:
-            self.linear_move(0.7, self.lin_vel)
-            deviation_from_y += 0.7
-
-        # otoceni vlevo
-        self.rotation_move(-pi / 2, self.ang_vel)
-
-        # jizda pokud zase nedojede do prekazky
-        while distance_obst_arr["270 deg"] > self.safety_boundary:
-            self.linear_move(0.7, self.lin_vel)
-
-        # jizda pokud zase neprejede prekazku
-        while distance_obst_arr["270 deg"] <= self.safety_boundary:
-            self.linear_move(0.7, self.lin_vel)
-            deviation_from_x += 0.7
+        # jizda pokud neprejede prekazku (pokud je v intervalu bezpecne distance)
+        while (distance_obst_arr["270 deg"] <= (self.safety_boundary + self.variance_of_distance)) \
+                and (distance_obst_arr["270 deg"] >= (self.safety_boundary - self.variance_of_distance))\
+                and not rospy.is_shutdown():
+            self.linear_move(self.dx)
+            deviation_from_y += self.dx
 
         # otoceni vlevo
-        self.rotation_move(-pi / 2, self.ang_vel)
+        self.rotation_move(-pi / 2)
+
+        # jizda pokud zase nedojede do prekazky (mimo interval bezpeci)
+        while distance_obst_arr["270 deg"] > (self.safety_boundary + self.variance_of_distance)\
+                and not rospy.is_shutdown():
+            self.linear_move(self.dx)
+            deviation_from_x += self.dx
+
+        # jizda pokud zase neprejede prekazku (pokud je zase v intervalu bezpecne distance)
+        while (distance_obst_arr["270 deg"] <= (self.safety_boundary + self.variance_of_distance))\
+                and (distance_obst_arr["270 deg"] >= (self.safety_boundary - self.variance_of_distance))\
+                and not rospy.is_shutdown():
+            self.linear_move(self.dx)
+            deviation_from_x += self.dx
+
+        # otoceni vpravo
+        self.rotation_move(-pi / 2)
 
         # jizda zpadky na cestu
-        self.linear_move(deviation_from_y, self.lin_vel)
+        self.linear_move(deviation_from_y)
 
         # otoceni na spravny smer
-        self.rotation_move(pi / 2, self.ang_vel)
+        self.rotation_move(pi / 2)
 
         obstacle_avoided = True
 
         return obstacle_avoided, deviation_from_x
 
+    # Hlavni funkce, realizujici dosazeni cile
     def move2goal(self):
-
-        print("move2goal")
-
-        #################
-        ## REDO STOP! ###
-        #################
-        if rospy.is_shutdown():
-            self.stop_tbot()
-            self.rate.sleep()
-            return None
-        #################
-        ## REDO STOP! ###
-        #################
 
         goal_coord_arr: Dict[str, Any] = {"x": 0.0, "y": 0.0}  # definice pole souradnic cile
         orig_coord_arr: Dict[str, Any] = {"x": 0.0, "y": 0.0}  # definice pole pocatecnich souradnic
@@ -238,34 +164,31 @@ class TurtleBot:
         goal_coord_arr["x"] = float(input("Souradnice cile x: "))
         goal_coord_arr["y"] = float(input("Souradnice cile y: "))
 
-        ####OTACENI####
-        angle = self.goal_angle(goal_coord_arr, orig_coord_arr)
+        while not rospy.is_shutdown():
+            print('moving')
 
-        self.rotation_move(angle, self.ang_vel)
-        ###############
+            ## OTACENI ##
 
-        #####JIZDA####
-        distance = self.goal_distance(goal_coord_arr, orig_coord_arr)
+            angle = self.goal_angle(goal_coord_arr, orig_coord_arr)
 
-        self.linear_move(distance, self.lin_vel)
-        ##############
+            self.rotation_move(angle)
 
+            ## JIZDA ##
 
-def main():
+            distance = self.goal_distance(goal_coord_arr, orig_coord_arr)
 
-    rospy.init_node("controller_py_n")  # inicializace nodu s nazvem nodu
+            self.linear_move(distance)
 
-    tb = TurtleBot()
-    tb.move2goal()
-    rospy.spin()
+            self.rate.sleep()
+
+            return None
 
 
 if __name__ == '__main__':
-    main()
-
-# rospy.spin()  # ctrl+c zastavi node
-# while not rospy.is_shutdown():
-#     print("main loop")
-#     x = TurtleBot()
-#     x.move2goal()
+    try:
+        # definice classu turtlebot, argumenty: lin_vel, ang_vel, safety_boundary, dx, variance_of_distance
+        tb = TurtleBot(0.1, 0.1, 0.5, 0.5, 0.5)
+        tb.move2goal()
+    except rospy.ROSInterruptException:
+        pass
 
