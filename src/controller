@@ -10,38 +10,43 @@ from sensor_msgs.msg import LaserScan
 def callback(msg):
     global distance_obst_arr
     # globalni dictionary do ktereho se zapisuji hodnoty
-    # ze sensoru, kolik zbylo do prekazky pos uhlem 0, 90
+    # ze sensoru, kolik zbylo do prekazky pod uhlem 0, 90
     distance_obst_arr = {"0 deg": msg.ranges[0], "90 deg": msg.ranges[90], "180 deg": msg.ranges[180],
                          "270 deg": msg.ranges[270]}
 
 
 class TurtleBot:
 
-    def __init__(self):
+    def __init__(self, lin_vel, ang_vel, safety_boundary, dx, variance_of_distance):
 
-        rospy.init_node('controller_py_n')
-        self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
+        rospy.init_node('controller_py_n')                              # inicializace nodu s nazvem controller_py_n
+        self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=1)     # definice objektu publisheru na tema /cmd_vel
         self.rate = rospy.Rate(10)                                      # rate of message sending is 10 Hz
 
-        self.sub = rospy.Subscriber('/scan', LaserScan, callback)
+        self.sub = rospy.Subscriber('/scan', LaserScan, callback)       # definice objektu subskriberu, sledujiciho
+                                                                        # tema /scan (lidar)
 
-        self.cmd_vel = Twist()
+        self.cmd_vel = Twist()                                          # definice objektu zpravy, obsahujici
+                                                                        # rychlost pro tematum /cmd_vel
 
-        self.lin_vel = 0.1
-        self.ang_vel = 0.1
-        self.safety_boundary = 0.5
-        self.dx = 0.5
-        self.variance_of_distance = 0.5
+        self.lin_vel = lin_vel                                          # linearni rychlost turtlebotu [m/s]
+        self.ang_vel = ang_vel                                          # rychlost otaceni turtlebotu  [m/s]
+        self.safety_boundary = safety_boundary                          # hranice objezdu prekazky [m]
+        self.dx = dx                                                    # krok, s kterym objizdi prekazku [m]
+        self.variance_of_distance = variance_of_distance                # odchylka of idealni trajektorie
+                                                                        # objezdu prekazky [m] (docela velka
+                                                                        # kvuli odometrii)
 
     @staticmethod  # does not use self in it
-    def goal_angle(goal_coord_arr, orig_coord_arr):
+    def goal_angle(goal_coord_arr, orig_coord_arr):                     # vypocte uhel k cili
         return atan2(goal_coord_arr["x"] - orig_coord_arr["x"], goal_coord_arr["y"] - orig_coord_arr["y"])
 
     @staticmethod
-    def goal_distance(goal_coord_arr, orig_coord_arr):
+    def goal_distance(goal_coord_arr, orig_coord_arr):                  # vypocte distanci do cile
         return sqrt(
             pow((goal_coord_arr["x"] - orig_coord_arr["x"]), 2) + pow((goal_coord_arr["y"] - orig_coord_arr["y"]), 2))
 
+    # funkce, realizujici otaceni turtlebotu
     def rotation_move(self, angle):
 
         t0 = rospy.Time.now().to_sec()  # pro zaznamenani casu
@@ -63,6 +68,7 @@ class TurtleBot:
 
         return None
 
+    # funkce realizujici linearni pohyb turtlebotu
     def linear_move(self, distance):
 
         obstacle_avoided: bool = False
@@ -96,6 +102,7 @@ class TurtleBot:
 
         return None
 
+    # funkce, realizujici jednoduchy algoritmus objezdu prekazky
     def naive_obstacle_avoidance(self):
 
         print("naive obstacle avoidance")
@@ -147,6 +154,7 @@ class TurtleBot:
 
         return obstacle_avoided, deviation_from_x
 
+    # Hlavni funkce, realizujici dosazeni cile
     def move2goal(self):
 
         goal_coord_arr: Dict[str, Any] = {"x": 0.0, "y": 0.0}  # definice pole souradnic cile
@@ -178,7 +186,8 @@ class TurtleBot:
 
 if __name__ == '__main__':
     try:
-        tb = TurtleBot()
+        # definice classu turtlebot, argumenty: lin_vel, ang_vel, safety_boundary, dx, variance_of_distance
+        tb = TurtleBot(0.1, 0.1, 0.5, 0.5, 0.5)
         tb.move2goal()
     except rospy.ROSInterruptException:
         pass
