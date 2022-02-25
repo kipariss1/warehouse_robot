@@ -107,7 +107,7 @@ find_package(catkin REQUIRED
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES a2b_controller
-#  CATKIN_DEPENDS other_catkin_pkg
+  CATKIN_DEPENDS actionlib geometry_msgs move_base_msgs nav_msgs rospy tf2_ros
 #  DEPENDS system_lib
 )
 
@@ -119,7 +119,7 @@ catkin_package(
 ## Your package locations should be listed before other locations
 include_directories(
 # include
-# ${catkin_INCLUDE_DIRS}
+ ${catkin_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
