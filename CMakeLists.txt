@@ -7,7 +7,13 @@ project(a2b_controller)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED)
+find_package(catkin REQUIRED
+	     actionlib
+             geometry_msgs
+             move_base_msgs
+             nav_msgs
+             rospy
+             tf2_ros)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
