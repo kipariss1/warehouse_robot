@@ -1,0 +1,95 @@
+#! /usr/bin/env python
+
+
+#! /usr/bin/env python
+
+import rospy
+from geometry_msgs.msg import Twist
+from math import atan2, pow, sqrt, pi
+
+
+class TurtleBot:
+
+    def __init__(self):
+
+        rospy.init_node('controller_py_n')
+        self.pub = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
+        self.rate = rospy.Rate(10)                                      # rate of message sending is 10 Hz
+
+        self.cmd_vel = Twist()
+
+        self.lin_vel = 0.5
+        self.ang_vel = 0.1
+
+    @staticmethod  # does not use self in it
+    def goal_angle(goal_coord_arr, orig_coord_arr):
+        return atan2(goal_coord_arr["x"] - orig_coord_arr["x"], goal_coord_arr["y"] - orig_coord_arr["y"])
+
+    @staticmethod
+    def goal_distance(goal_coord_arr, orig_coord_arr):
+        return sqrt(
+            pow((goal_coord_arr["x"] - orig_coord_arr["x"]), 2) + pow((goal_coord_arr["y"] - orig_coord_arr["y"]), 2))
+
+    def move2goal(self):
+
+        goal_coord_arr: Dict[str, Any] = {"x": 0.0, "y": 0.0}  # definice pole souradnic cile
+        orig_coord_arr: Dict[str, Any] = {"x": 0.0, "y": 0.0}  # definice pole pocatecnich souradnic
+
+        # zadani souradnic cile
+        goal_coord_arr["x"] = float(input("Souradnice cile x: "))
+        goal_coord_arr["y"] = float(input("Souradnice cile y: "))
+
+        while not rospy.is_shutdown():
+            print('moving')
+
+            ## OTACENI ##
+
+            angle = self.goal_angle(goal_coord_arr, orig_coord_arr)
+
+            t0 = rospy.Time.now().to_sec()  # pro zaznamenani casu
+            t1 = t0
+
+            while (self.ang_vel * (t1 - t0) < abs(angle)) and not rospy.is_shutdown():
+
+                if angle <= 0:
+                    self.cmd_vel.angular.z = -self.ang_vel
+                else:
+                    self.cmd_vel.angular.z = self.ang_vel
+                self.pub.publish(self.cmd_vel)
+                t1 = rospy.Time.now().to_sec()
+                self.rate.sleep()
+
+            self.cmd_vel.angular.z = 0
+            self.pub.publish(self.cmd_vel)
+            self.rate.sleep()
+
+            ## JIZDA ##
+
+            distance = self.goal_distance(goal_coord_arr, orig_coord_arr)
+
+            t0 = rospy.Time.now().to_sec()  # pro zaznamenani casu
+            t1 = t0
+
+            while (self.lin_vel * (t1 - t0) < distance) and not rospy.is_shutdown():
+
+                self.cmd_vel.linear.x = self.lin_vel  # pohyb podel osy x robota s rychlosti 0.5
+                self.pub.publish(self.cmd_vel)
+                t1 = rospy.Time.now().to_sec()
+                self.rate.sleep()
+
+            self.cmd_vel.linear.x = 0
+            self.pub.publish(self.cmd_vel)
+
+            self.rate.sleep()       # nechat v move2goal!
+
+            return None
+
+
+if __name__ == '__main__':
+    try:
+        tb = TurtleBot()
+        tb.move2goal()
+    except rospy.ROSInterruptException:
+        pass
+
+
