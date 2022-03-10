@@ -4,25 +4,21 @@ import rospy
 from nav_msgs.msg import OccupancyGrid
 
 
+def callback(msg):
+    rospy.loginfo(rospy.get_caller_id() + "I heard %s", msg.data)
+
+
 class TurtleBotSlamExplorer:
 
     def __init__(self):
 
-        pass
-
-    def get_map(self):
-
-        while not rospy.is_shutdown():
-
-            map_data = rospy.wait_for_message('/map', OccupancyGrid)
-
-        return map_data
+        self.sub = rospy.Subscriber('/map', OccupancyGrid, callback)
 
 
 def main():
     rospy.init_node('slam_explorer_n')
-    slam_explr = TurtleBotSlamExplorer()
-    print(slam_explr.get_map())
+    slam_explorer = TurtleBotSlamExplorer()
+    rospy.spin()
 
 
 if __name__ == '__main__':
