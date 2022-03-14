@@ -3,6 +3,9 @@
 import rospy
 from nav_msgs.msg import OccupancyGrid
 import numpy as np
+import pandas as pd                             # for saving the map to csv
+import actionlib                                # lib for placing the goal and robot autonomously navigating there
+from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 
 
 class TurtleBotSlamExplorer:
@@ -10,6 +13,10 @@ class TurtleBotSlamExplorer:
     def __init__(self):
 
         self.rate = rospy.Rate(10)              # rate of message sending is 10 Hz
+
+        # Actionlib client definition
+        self.action_client = actionlib.SimpleActionClient('/move_base', MoveBaseAction)
+        self.action_client.wait_for_server()
 
     def explore(self):
 
@@ -22,12 +29,29 @@ class TurtleBotSlamExplorer:
                                                                      raw_map.info.width))   # to 2d with right size
             # Occupancy grid explanation: -1 - unknown, 100 - Occupied, 0 - not occupied #
 
-            print(raw_map.info.origin)
+            # print(raw_map.info.origin)
+
+            # PLACING THE RANDOM GOAL FOR TURTLEBOT #
+
+            goal = MoveBaseGoal()
+            goal.target_pose.header.frame_id = "map"
+            goal.target_pose.header.stamp = rospy.Time.now()
+            goal.target_pose.pose.position.x = 0.1
+            goal.target_pose.pose.position.y = 0.1
+            goal.target_pose.pose.orientation.w = 1.0
+
+            # SENDING THE GOAL TO THE TURTLEBOT #
+
+            self.action_client.send_goal(goal)
+
+            #return raw_map_data_numpy_reshape
+
 
 def main():
     rospy.init_node('slam_explorer_n')
     slam_explorer = TurtleBotSlamExplorer()
     slam_explorer.explore()
+    #pd.DataFrame(x).to_csv("~/Desktop/map.csv")
 
 
 if __name__ == '__main__':
