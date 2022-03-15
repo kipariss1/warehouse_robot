@@ -14,7 +14,8 @@ class TurtleBotSlamExplorer:
 
         self.rate = rospy.Rate(10)              # rate of message sending is 10 Hz
 
-        # Actionlib client definition
+        # Actionlib client definition #
+        # move base is name of topic of the package, that allows you to move robot in a desired position
         self.action_client = actionlib.SimpleActionClient('/move_base', MoveBaseAction)
         self.action_client.wait_for_server()
 
@@ -25,19 +26,21 @@ class TurtleBotSlamExplorer:
             raw_map = rospy.wait_for_message('/map', OccupancyGrid)                         # get map with metadata
             raw_map_data_numpy = np.asarray(raw_map.data)                                   # 1d map -> np.ndarray
 
+            raw_map_resolution = raw_map.info.resolution                                    # resolution of map [m/cell]
+
             raw_map_data_numpy_reshape = raw_map_data_numpy.reshape((raw_map.info.height,   # reshaping 1d np.ndarray
                                                                      raw_map.info.width))   # to 2d with right size
             # Occupancy grid explanation: -1 - unknown, 100 - Occupied, 0 - not occupied #
 
-            # print(raw_map.info.origin)
-
             # PLACING THE RANDOM GOAL FOR TURTLEBOT #
+
+            # goal is to send turtlebot to the cell of the map with coord [-61, 1]
 
             goal = MoveBaseGoal()
             goal.target_pose.header.frame_id = "map"
             goal.target_pose.header.stamp = rospy.Time.now()
-            goal.target_pose.pose.position.x = 0.1
-            goal.target_pose.pose.position.y = 0.1
+            goal.target_pose.pose.position.x = -61*raw_map_resolution
+            goal.target_pose.pose.position.y = 2*raw_map_resolution
             goal.target_pose.pose.orientation.w = 1.0
 
             # SENDING THE GOAL TO THE TURTLEBOT #
