@@ -3,58 +3,165 @@
 import rospy
 from nav_msgs.msg import OccupancyGrid
 import numpy as np
-import pandas as pd                             # for saving the map to csv
-import actionlib                                # lib for placing the goal and robot autonomously navigating there
+import pandas as pd  # for saving the map to csv
+import actionlib  # lib for placing the goal and robot autonomously navigating there
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
+from geometry_msgs.msg import Transform, TransformStamped, Vector3, Quaternion
+import tf2_ros  # lib for translating and rotating the frames
 
 
 class TurtleBotSlamExplorer:
 
     def __init__(self):
 
-        self.rate = rospy.Rate(10)              # rate of message sending is 10 Hz
+        self.rate = rospy.Rate(10)  # rate of message sending is 10 Hz
 
         # Actionlib client definition #
         # move base is name of topic of the package, that allows you to move robot in a desired position
         self.action_client = actionlib.SimpleActionClient('/move_base', MoveBaseAction)
+        # publishes messages on /move_base topic with format: MoveBaseAction
         self.action_client.wait_for_server()
+
+        # tf2 package definition for translating and rotating frames
+        self.tf2_broadcaster = tf2_ros.TransformBroadcaster()       # broadcasting new frames to the network
+
+        self.tf2_buffer = tf2_ros.Buffer()                          # stores all frames
+
+        self.tf2_listener = tf2_ros.TransformListener(self.tf2_buffer)  # listens for new frames and calculating
+                                                                        # translation and rotation between them
 
     def explore(self):
 
         while not rospy.is_shutdown():
 
-            raw_map = rospy.wait_for_message('/map', OccupancyGrid)                         # get map with metadata
-            raw_map_data_numpy = np.asarray(raw_map.data)                                   # 1d map -> np.ndarray
+            raw_map = rospy.wait_for_message('/map', OccupancyGrid)  # get map with metadata
+            raw_map_data_numpy = np.asarray(raw_map.data)  # 1d map -> np.ndarray
 
-            raw_map_resolution = raw_map.info.resolution                                    # resolution of map [m/cell]
+            raw_map_resolution = raw_map.info.resolution  # resolution of map [m/cell]
 
-            raw_map_data_numpy_reshape = raw_map_data_numpy.reshape((raw_map.info.height,   # reshaping 1d np.ndarray
-                                                                     raw_map.info.width))   # to 2d with right size
+            raw_map_data_numpy_reshape = raw_map_data_numpy.reshape((raw_map.info.height,  # reshaping 1d np.ndarray
+                                                                     raw_map.info.width))  # to 2d with right size
             # Occupancy grid explanation: -1 - unknown, 100 - Occupied, 0 - not occupied #
 
-            # PLACING THE RANDOM GOAL FOR TURTLEBOT #
+            #####################################################
+            # SEARCHING FOR UNKNOWN CELLS ON THE MAP TO EXPLORE #
+            #####################################################
 
-            # goal is to send turtlebot to the cell of the map with coord [-61, 1]
+            # TODO: algorithm for searching unknown cells on the map
+
+            # goal is to send turtlebot to the cell of the map with coordinates [goal_coords["x"], goal_coords["y"]]
+
+            goal_coords = {"x": 10, "y": 10}
+
+            ############################################################
+            # End of SEARCHING FOR UNKNOWN CELLS ON THE MAP TO EXPLORE #
+            ############################################################
+
+            # --------------------------------------------------------------------------------------------------
+
+            ################################
+            # Transformation of the frames #
+            ################################
+
+            # (*) GETTING THE TRANSFORM FROM /map FRAME ORIGIN TO THE CELL(0,0) IN THE MAP (LOWER LEFT CORNER) #
+
+            # definition of new frame
+            lower_left_corner_transform_stamped = TransformStamped()
+            lower_left_corner_transform_stamped.header.stamp = rospy.Time.now()
+            lower_left_corner_transform_stamped.header.frame_id = "map"
+            lower_left_corner_transform_stamped.child_frame_id = "lower left corner"
+
+            # definition of new frame's rotation and translation parameters
+            lower_left_corner_transform = Transform(
+                translation=Vector3(
+                    x=raw_map.info.origin.position.x,  # x coordinates in [m] of cell(0,0) on the /map frame
+                    y=raw_map.info.origin.position.y,  # y coordinates in [m] of cell(0,0) on the /map frame
+                    z=0),
+                rotation=Quaternion(
+                    x=0,
+                    y=0,
+                    z=0,
+                    w=1
+                )
+
+            )
+
+            lower_left_corner_transform_stamped.transform = lower_left_corner_transform
+
+            # sending out the transformed frame
+            self.tf2_broadcaster.sendTransform(lower_left_corner_transform_stamped)
+
+            # (*) GETTING THE TRANSFORM FROM lower left corner FRAME ORIGIN TO THE goal coordinates #
+
+            goal_coords_transform_stamped = TransformStamped()
+            goal_coords_transform_stamped.header.stamp = rospy.Time.now()
+            goal_coords_transform_stamped.header.frame_id = "lower left corner"
+            goal_coords_transform_stamped.child_frame_id = "goal coordinates"
+
+            # definition of new frame's rotation and translation parameters
+            goal_coords_transform = Transform(
+                translation=Vector3(
+                    x=goal_coords["x"] * raw_map_resolution,  # x coordinates in [m] of cell(0,0) on the /map frame
+                    y=goal_coords["x"] * raw_map_resolution,  # y coordinates in [m] of cell(0,0) on the /map frame
+                    z=0),
+                rotation=Quaternion(
+                    x=0,
+                    y=0,
+                    z=0,
+                    w=1
+                )
+
+            )
+
+            goal_coords_transform_stamped.transform = goal_coords_transform
+
+            # sending out the transformed frame
+            self.tf2_broadcaster.sendTransform(goal_coords_transform_stamped)
+
+            #######################################
+            # End of Transformation of the frames #
+            #######################################
+
+            # --------------------------------------------------------------------------------------------------
+
+            ######################################################################
+            # Getting the translation between original /map frame and goal frame #
+            ######################################################################
+
+            try:
+                resulting_tranformation = self.tf2_buffer.lookup_transform('map',
+                                                                           'goal coordinates',
+                                                                           rospy.Time())
+            except (tf2_ros.LookupException,
+                    tf2_ros.ConnectivityException,
+                    tf2_ros.ExtrapolationException):
+                continue
+
+            #############################################################################
+            # End of Getting the translation between original /map frame and goal frame #
+            #############################################################################
+
+            # --------------------------------------------------------------------------------------------------
+
+            # SENDING THE GOAL TO THE TURTLEBOT #
 
             goal = MoveBaseGoal()
             goal.target_pose.header.frame_id = "map"
             goal.target_pose.header.stamp = rospy.Time.now()
-            goal.target_pose.pose.position.x = -61*raw_map_resolution
-            goal.target_pose.pose.position.y = 2*raw_map_resolution
+            goal.target_pose.pose.position.x = resulting_tranformation.transform.translation.x
+            goal.target_pose.pose.position.y = resulting_tranformation.transform.translation.y
             goal.target_pose.pose.orientation.w = 1.0
-
-            # SENDING THE GOAL TO THE TURTLEBOT #
 
             self.action_client.send_goal(goal)
 
-            #return raw_map_data_numpy_reshape
+            # return raw_map_data_numpy_reshape
 
 
 def main():
     rospy.init_node('slam_explorer_n')
     slam_explorer = TurtleBotSlamExplorer()
     slam_explorer.explore()
-    #pd.DataFrame(x).to_csv("~/Desktop/map.csv")
+    # pd.DataFrame(x).to_csv("~/Desktop/map.csv")
 
 
 if __name__ == '__main__':
@@ -62,5 +169,3 @@ if __name__ == '__main__':
         main()
     except rospy.ROSInterruptException:
         pass
-
-
