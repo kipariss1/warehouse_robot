@@ -23,12 +23,46 @@ class TurtleBotSlamExplorer:
         self.action_client.wait_for_server()
 
         # tf2 package definition for translating and rotating frames
-        self.tf2_broadcaster = tf2_ros.TransformBroadcaster()       # broadcasting new frames to the network
+        self.tf2_broadcaster = tf2_ros.TransformBroadcaster()  # broadcasting new frames to the network
 
-        self.tf2_buffer = tf2_ros.Buffer()                          # stores all frames
+        self.tf2_buffer = tf2_ros.Buffer()  # stores all frames
 
         self.tf2_listener = tf2_ros.TransformListener(self.tf2_buffer)  # listens for new frames and calculating
-                                                                        # translation and rotation between them
+        # translation and rotation between them
+
+    # FUNCTION, WHICH MAKES NEW FRAME BY TRANSFOMATING FROM OLD AND SENDS IT OUT TO BUFFER
+    def add_new_frame_transformed(self, parent_frame_id: str, child_frame_id: str, translation: dict, rotation: dict):
+
+        new_transform_stamped = TransformStamped()  # initialise new transform object
+        new_transform_stamped.header.stamp = rospy.Time.now()  # stamping it
+        new_transform_stamped.header.frame_id = parent_frame_id  # adding source frame
+        new_transform_stamped.child_frame_id = child_frame_id  # adding child frame
+
+        # definition of new frame's rotation and translation parameters
+        lower_left_corner_transform = Transform(
+            translation=Vector3(
+                x=translation["x"],
+                y=translation["y"],
+                z=translation["z"]),
+            rotation=Quaternion(
+                x=rotation["x"],
+                y=rotation["y"],
+                z=rotation["z"],
+                w=rotation["w"]  # direction usually = 1
+            )
+
+        )
+
+        new_transform_stamped.transform = lower_left_corner_transform  # adding of transformation to object
+
+        # sending out the transformed frame
+        self.tf2_broadcaster.sendTransform(new_transform_stamped)
+
+        return child_frame_id
+
+    def set_zeroed_frame(self, raw_map: tuple, goal_coords: dict):
+
+        pass
 
     def explore(self):
 
@@ -65,58 +99,20 @@ class TurtleBotSlamExplorer:
 
             # (*) GETTING THE TRANSFORM FROM /map FRAME ORIGIN TO THE CELL(0,0) IN THE MAP (LOWER LEFT CORNER) #
 
-            # definition of new frame
-            lower_left_corner_transform_stamped = TransformStamped()
-            lower_left_corner_transform_stamped.header.stamp = rospy.Time.now()
-            lower_left_corner_transform_stamped.header.frame_id = "map"
-            lower_left_corner_transform_stamped.child_frame_id = "lower left corner"
-
-            # definition of new frame's rotation and translation parameters
-            lower_left_corner_transform = Transform(
-                translation=Vector3(
-                    x=raw_map.info.origin.position.x,  # x coordinates in [m] of cell(0,0) on the /map frame
-                    y=raw_map.info.origin.position.y,  # y coordinates in [m] of cell(0,0) on the /map frame
-                    z=0),
-                rotation=Quaternion(
-                    x=0,
-                    y=0,
-                    z=0,
-                    w=1
-                )
-
-            )
-
-            lower_left_corner_transform_stamped.transform = lower_left_corner_transform
-
-            # sending out the transformed frame
-            self.tf2_broadcaster.sendTransform(lower_left_corner_transform_stamped)
+            self.add_new_frame_transformed("map", "lower left corner",
+                                           # x coordinates in [m] of cell(0,0) on the /map frame
+                                           {"x": raw_map.info.origin.position.x,
+                                            # y coordinates in [m] of cell(0,0) on the /map frame
+                                            "y": raw_map.info.origin.position.y,
+                                            "z": 0},
+                                           {"x": 0, "y": 0, "z": 0, "w": 1})
 
             # (*) GETTING THE TRANSFORM FROM lower left corner FRAME ORIGIN TO THE goal coordinates #
 
-            goal_coords_transform_stamped = TransformStamped()
-            goal_coords_transform_stamped.header.stamp = rospy.Time.now()
-            goal_coords_transform_stamped.header.frame_id = "lower left corner"
-            goal_coords_transform_stamped.child_frame_id = "goal coordinates"
-
-            # definition of new frame's rotation and translation parameters
-            goal_coords_transform = Transform(
-                translation=Vector3(
-                    x=goal_coords["x"] * raw_map_resolution,  # x coordinates in [m] of cell(0,0) on the /map frame
-                    y=goal_coords["x"] * raw_map_resolution,  # y coordinates in [m] of cell(0,0) on the /map frame
-                    z=0),
-                rotation=Quaternion(
-                    x=0,
-                    y=0,
-                    z=0,
-                    w=1
-                )
-
-            )
-
-            goal_coords_transform_stamped.transform = goal_coords_transform
-
-            # sending out the transformed frame
-            self.tf2_broadcaster.sendTransform(goal_coords_transform_stamped)
+            self.add_new_frame_transformed("lower left corner", "goal coordinates",
+                                           {"x": goal_coords["x"] * raw_map_resolution,
+                                            "y": goal_coords["x"] * raw_map_resolution, "z": 0},
+                                           {"x": 0, "y": 0, "z": 0, "w": 1})
 
             #######################################
             # End of Transformation of the frames #
@@ -127,6 +123,8 @@ class TurtleBotSlamExplorer:
             ######################################################################
             # Getting the translation between original /map frame and goal frame #
             ######################################################################
+
+            # Getting 'map' and 'goal coordinates' frames from buffer and calculating transformation between them
 
             try:
                 resulting_tranformation = self.tf2_buffer.lookup_transform('map',
