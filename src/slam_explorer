@@ -30,7 +30,7 @@ class TurtleBotSlamExplorer:
         self.tf2_listener = tf2_ros.TransformListener(self.tf2_buffer)  # listens for new frames and calculating
         # translation and rotation between them
 
-    # FUNCTION, WHICH MAKES NEW FRAME BY TRANSFOMATING FROM OLD AND SENDS IT OUT TO BUFFER
+    # FUNCTION, WHICH MAKES NEW FRAME BY TRANSFORMING FROM OLD AND SENDS IT OUT TO BUFFER
     def add_new_frame_transformed(self, parent_frame_id: str, child_frame_id: str, translation: dict, rotation: dict):
 
         new_transform_stamped = TransformStamped()  # initialise new transform object
@@ -60,9 +60,64 @@ class TurtleBotSlamExplorer:
 
         return child_frame_id
 
+    # FUNCTION SETS TWO NEW FRAMES ('CELL(0,0)' FRAME <- /map FRAME; 'GOAL' FRAME <- 'CELL(0,0)' FRAME) AND CALCULATES
+    # TRANSFORMATION FROM ORIGIN /map FRAME TO 'GOAL' FRAME (WHICH IS EQUIVALENT TO MOVING THE MAP FRAME TO (0,0),
+    # that's why it's called set_zeroed_frame)
     def set_zeroed_frame(self, raw_map: tuple, goal_coords: dict):
 
-        pass
+        raw_map_resolution = raw_map.info.resolution  # resolution of map [m/cell]
+
+        # --------------------------------------------------------------------------------------------------
+
+        ################################
+        # Transformation of the frames #
+        ################################
+
+        # (*) GETTING THE TRANSFORM FROM /map FRAME ORIGIN TO THE CELL(0,0) IN THE MAP (LOWER LEFT CORNER) #
+
+        self.add_new_frame_transformed("map", "lower left corner",
+                                       # x coordinates in [m] of cell(0,0) on the /map frame
+                                       {"x": raw_map.info.origin.position.x,
+                                        # y coordinates in [m] of cell(0,0) on the /map frame
+                                        "y": raw_map.info.origin.position.y,
+                                        "z": 0},
+                                       {"x": 0, "y": 0, "z": 0, "w": 1})
+
+        # (*) GETTING THE TRANSFORM FROM lower left corner FRAME ORIGIN TO THE goal coordinates #
+
+        self.add_new_frame_transformed("lower left corner", "goal coordinates",
+                                       {"x": goal_coords["x"] * raw_map_resolution,
+                                        "y": goal_coords["x"] * raw_map_resolution, "z": 0},
+                                       {"x": 0, "y": 0, "z": 0, "w": 1})
+
+        #######################################
+        # End of Transformation of the frames #
+        #######################################
+
+        # --------------------------------------------------------------------------------------------------
+
+        ######################################################################
+        # Getting the translation between original /map frame and goal frame #
+        ######################################################################
+
+        # Getting 'map' and 'goal coordinates' frames from buffer and calculating transformation between them
+
+        try:
+            resulting_tranformation = self.tf2_buffer.lookup_transform('map',
+                                                                       'goal coordinates',
+                                                                       rospy.Time())
+            return resulting_tranformation
+
+        except (tf2_ros.LookupException,
+                tf2_ros.ConnectivityException,
+                tf2_ros.ExtrapolationException):
+
+            rospy.loginfo('ERROR: Lookup transform!')
+            return None
+
+        #############################################################################
+        # End of Getting the translation between original /map frame and goal frame #
+        #############################################################################
 
     def explore(self):
 
@@ -70,8 +125,6 @@ class TurtleBotSlamExplorer:
 
             raw_map = rospy.wait_for_message('/map', OccupancyGrid)  # get map with metadata
             raw_map_data_numpy = np.asarray(raw_map.data)  # 1d map -> np.ndarray
-
-            raw_map_resolution = raw_map.info.resolution  # resolution of map [m/cell]
 
             raw_map_data_numpy_reshape = raw_map_data_numpy.reshape((raw_map.info.height,  # reshaping 1d np.ndarray
                                                                      raw_map.info.width))  # to 2d with right size
@@ -93,64 +146,20 @@ class TurtleBotSlamExplorer:
 
             # --------------------------------------------------------------------------------------------------
 
-            ################################
-            # Transformation of the frames #
-            ################################
+            # SETTING THE FRAMES AND RETURNING CALCULATED TRANSFORMATION
 
-            # (*) GETTING THE TRANSFORM FROM /map FRAME ORIGIN TO THE CELL(0,0) IN THE MAP (LOWER LEFT CORNER) #
-
-            self.add_new_frame_transformed("map", "lower left corner",
-                                           # x coordinates in [m] of cell(0,0) on the /map frame
-                                           {"x": raw_map.info.origin.position.x,
-                                            # y coordinates in [m] of cell(0,0) on the /map frame
-                                            "y": raw_map.info.origin.position.y,
-                                            "z": 0},
-                                           {"x": 0, "y": 0, "z": 0, "w": 1})
-
-            # (*) GETTING THE TRANSFORM FROM lower left corner FRAME ORIGIN TO THE goal coordinates #
-
-            self.add_new_frame_transformed("lower left corner", "goal coordinates",
-                                           {"x": goal_coords["x"] * raw_map_resolution,
-                                            "y": goal_coords["x"] * raw_map_resolution, "z": 0},
-                                           {"x": 0, "y": 0, "z": 0, "w": 1})
-
-            #######################################
-            # End of Transformation of the frames #
-            #######################################
-
-            # --------------------------------------------------------------------------------------------------
-
-            ######################################################################
-            # Getting the translation between original /map frame and goal frame #
-            ######################################################################
-
-            # Getting 'map' and 'goal coordinates' frames from buffer and calculating transformation between them
-
-            try:
-                resulting_tranformation = self.tf2_buffer.lookup_transform('map',
-                                                                           'goal coordinates',
-                                                                           rospy.Time())
-            except (tf2_ros.LookupException,
-                    tf2_ros.ConnectivityException,
-                    tf2_ros.ExtrapolationException):
-                continue
-
-            #############################################################################
-            # End of Getting the translation between original /map frame and goal frame #
-            #############################################################################
-
-            # --------------------------------------------------------------------------------------------------
+            resulting_transformation = self.set_zeroed_frame(raw_map, goal_coords)
 
             # SENDING THE GOAL TO THE TURTLEBOT #
+            if resulting_transformation:
+                goal = MoveBaseGoal()
+                goal.target_pose.header.frame_id = "map"
+                goal.target_pose.header.stamp = rospy.Time.now()
+                goal.target_pose.pose.position.x = resulting_transformation.transform.translation.x
+                goal.target_pose.pose.position.y = resulting_transformation.transform.translation.y
+                goal.target_pose.pose.orientation.w = 1.0
 
-            goal = MoveBaseGoal()
-            goal.target_pose.header.frame_id = "map"
-            goal.target_pose.header.stamp = rospy.Time.now()
-            goal.target_pose.pose.position.x = resulting_tranformation.transform.translation.x
-            goal.target_pose.pose.position.y = resulting_tranformation.transform.translation.y
-            goal.target_pose.pose.orientation.w = 1.0
-
-            self.action_client.send_goal(goal)
+                self.action_client.send_goal(goal)
 
             # return raw_map_data_numpy_reshape
 
