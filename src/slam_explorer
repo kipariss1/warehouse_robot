@@ -87,7 +87,7 @@ class TurtleBotSlamExplorer:
 
         self.add_new_frame_transformed("lower left corner", "goal coordinates",
                                        {"x": goal_coords["x"] * raw_map_resolution,
-                                        "y": goal_coords["x"] * raw_map_resolution, "z": 0},
+                                        "y": goal_coords["y"] * raw_map_resolution, "z": 0},
                                        {"x": 0, "y": 0, "z": 0, "w": 1})
 
         #######################################
@@ -136,9 +136,9 @@ class TurtleBotSlamExplorer:
 
             # TODO: algorithm for searching unknown cells on the map
 
-            # goal is to send turtlebot to the cell of the map with coordinates [goal_coords["x"], goal_coords["y"]]
+            # goal is to send turtlebot to the cell of the map with coordinates [raw_map_numpy["x"], -//-["y"]]
 
-            goal_coords = {"x": 10, "y": 10}
+            goal_coords = {"x": 60, "y": 30}
 
             ############################################################
             # End of SEARCHING FOR UNKNOWN CELLS ON THE MAP TO EXPLORE #
