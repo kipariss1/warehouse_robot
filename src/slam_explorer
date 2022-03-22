@@ -8,6 +8,7 @@ import actionlib  # lib for placing the goal and robot autonomously navigating t
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from geometry_msgs.msg import Transform, TransformStamped, Vector3, Quaternion
 import tf2_ros  # lib for translating and rotating the frames
+from random import randint
 
 
 class TurtleBotSlamExplorer:
@@ -17,21 +18,20 @@ class TurtleBotSlamExplorer:
         self.rate = rospy.Rate(10)  # rate of message sending is 10 Hz
 
         # Actionlib client definition #
-        # move base is name of topic of the package, that allows you to move robot in a desired position
+        # move base is name of topic of the package, publishing the message on that topic allows you to move robot
+        # in a desired position.
+        # SimpleActionClient publishes messages on /move_base topic with format: MoveBaseAction
         self.action_client = actionlib.SimpleActionClient('/move_base', MoveBaseAction)
-        # publishes messages on /move_base topic with format: MoveBaseAction
         self.action_client.wait_for_server()
 
         # tf2 package definition for translating and rotating frames
         self.tf2_broadcaster = tf2_ros.TransformBroadcaster()  # broadcasting new frames to the network
-
         self.tf2_buffer = tf2_ros.Buffer()  # stores all frames
-
         self.tf2_listener = tf2_ros.TransformListener(self.tf2_buffer)  # listens for new frames and calculating
-        # translation and rotation between them
+                                                                        # translation and rotation between them
 
     # FUNCTION, WHICH MAKES NEW FRAME BY TRANSFORMING FROM OLD AND SENDS IT OUT TO BUFFER
-    def add_new_frame_transformed(self, parent_frame_id: str, child_frame_id: str, translation: dict, rotation: dict):
+    def add_new_transformed_frame(self, parent_frame_id: str, child_frame_id: str, translation: dict, rotation: dict):
 
         new_transform_stamped = TransformStamped()  # initialise new transform object
         new_transform_stamped.header.stamp = rospy.Time.now()  # stamping it
@@ -63,7 +63,7 @@ class TurtleBotSlamExplorer:
     # FUNCTION SETS TWO NEW FRAMES ('CELL(0,0)' FRAME <- /map FRAME; 'GOAL' FRAME <- 'CELL(0,0)' FRAME) AND CALCULATES
     # TRANSFORMATION FROM ORIGIN /map FRAME TO 'GOAL' FRAME (WHICH IS EQUIVALENT TO MOVING THE MAP FRAME TO (0,0),
     # that's why it's called set_zeroed_frame)
-    def set_zeroed_frame(self, raw_map: tuple, goal_coords: dict):
+    def set_zeroed_map_frame(self, raw_map: tuple, goal_coords: dict):
 
         raw_map_resolution = raw_map.info.resolution  # resolution of map [m/cell]
 
@@ -75,7 +75,7 @@ class TurtleBotSlamExplorer:
 
         # (*) GETTING THE TRANSFORM FROM /map FRAME ORIGIN TO THE CELL(0,0) IN THE MAP (LOWER LEFT CORNER) #
 
-        self.add_new_frame_transformed("map", "lower left corner",
+        self.add_new_transformed_frame("map", "lower left corner",
                                        # x coordinates in [m] of cell(0,0) on the /map frame
                                        {"x": raw_map.info.origin.position.x,
                                         # y coordinates in [m] of cell(0,0) on the /map frame
@@ -85,7 +85,7 @@ class TurtleBotSlamExplorer:
 
         # (*) GETTING THE TRANSFORM FROM lower left corner FRAME ORIGIN TO THE goal coordinates #
 
-        self.add_new_frame_transformed("lower left corner", "goal coordinates",
+        self.add_new_transformed_frame("lower left corner", "goal coordinates",
                                        {"x": goal_coords["x"] * raw_map_resolution,
                                         "y": goal_coords["y"] * raw_map_resolution, "z": 0},
                                        {"x": 0, "y": 0, "z": 0, "w": 1})
@@ -119,36 +119,38 @@ class TurtleBotSlamExplorer:
         # End of Getting the translation between original /map frame and goal frame #
         #############################################################################
 
+    # FOR NOW THIS IS NAIVE FRONTIER DETECTING ALGORITHM, RANDOMLY CHOSING UNKNOWN CELLS ON THE MAP
+    def frontier_detection(self, raw_map_data_numpy_reshape: np.ndarray) -> dict:
+
+        # goal is to send turtlebot to the cell of the map with coordinates [raw_map_numpy["x"], -//-["y"]]
+
+        frontier_indices = np.where(raw_map_data_numpy_reshape == -1)
+
+        rnd_i = randint(0, np.shape(frontier_indices)[1] - 1)   # random choose from all rows and columns in
+                                                                # raw_map_..._reshape, which contains -1
+
+        goal_coords = {"x": frontier_indices[1][rnd_i], "y": frontier_indices[0][rnd_i]}
+
+        return goal_coords
+
     def explore(self):
 
         while not rospy.is_shutdown():
 
-            raw_map = rospy.wait_for_message('/map', OccupancyGrid)  # get map with metadata
-            raw_map_data_numpy = np.asarray(raw_map.data)  # 1d map -> np.ndarray
+            raw_map = rospy.wait_for_message('/map', OccupancyGrid)     # get map with metadata
+            raw_map_data_numpy = np.asarray(raw_map.data)               # 1d map -> np.ndarray
 
             raw_map_data_numpy_reshape = raw_map_data_numpy.reshape((raw_map.info.height,  # reshaping 1d np.ndarray
                                                                      raw_map.info.width))  # to 2d with right size
             # Occupancy grid explanation: -1 - unknown, 100 - Occupied, 0 - not occupied #
 
-            #####################################################
-            # SEARCHING FOR UNKNOWN CELLS ON THE MAP TO EXPLORE #
-            #####################################################
+            # FINDING THE FRONTIER (A ROBOT'S GOAL)
 
-            # TODO: algorithm for searching unknown cells on the map
-
-            # goal is to send turtlebot to the cell of the map with coordinates [raw_map_numpy["x"], -//-["y"]]
-
-            goal_coords = {"x": 60, "y": 30}
-
-            ############################################################
-            # End of SEARCHING FOR UNKNOWN CELLS ON THE MAP TO EXPLORE #
-            ############################################################
-
-            # --------------------------------------------------------------------------------------------------
+            goal_coords = self.frontier_detection(raw_map_data_numpy_reshape)
 
             # SETTING THE FRAMES AND RETURNING CALCULATED TRANSFORMATION
 
-            resulting_transformation = self.set_zeroed_frame(raw_map, goal_coords)
+            resulting_transformation = self.set_zeroed_map_frame(raw_map, goal_coords)
 
             # SENDING THE GOAL TO THE TURTLEBOT #
             if resulting_transformation:
@@ -159,7 +161,7 @@ class TurtleBotSlamExplorer:
                 goal.target_pose.pose.position.y = resulting_transformation.transform.translation.y
                 goal.target_pose.pose.orientation.w = 1.0
 
-                self.action_client.send_goal(goal)
+                self.action_client.send_goal_and_wait(goal)
 
             # return raw_map_data_numpy_reshape
 
