@@ -120,11 +120,17 @@ class TurtleBotSlamExplorer:
         #############################################################################
 
     # FOR NOW THIS IS NAIVE FRONTIER DETECTING ALGORITHM, RANDOMLY CHOSING UNKNOWN CELLS ON THE MAP
-    def frontier_detection(self, raw_map_data_numpy_reshape: np.ndarray) -> dict:
+    def frontier_detection(self, raw_map_data_numpy_reshape: np.ndarray,
+                           raw_costmap_data_numpy_reshape: np.ndarray) -> dict:
 
         # goal is to send turtlebot to the cell of the map with coordinates [raw_map_numpy["x"], -//-["y"]]
 
-        frontier_indices = np.where(raw_map_data_numpy_reshape == -1)
+        # searching of unknown cells in map with low cost of going there (doesn't have walls or angles around it)
+        frontier_indices = np.where((raw_map_data_numpy_reshape == -1) &
+                                    (raw_costmap_data_numpy_reshape < 30))
+
+        if not frontier_indices:
+            rospy.loginfo('ERROR: Frontier finding!')
 
         rnd_i = randint(0, np.shape(frontier_indices)[1] - 1)   # random choose from all rows and columns in
                                                                 # raw_map_..._reshape, which contains -1
@@ -137,6 +143,8 @@ class TurtleBotSlamExplorer:
 
         while not rospy.is_shutdown():
 
+            # FETCHING MAP #
+
             raw_map = rospy.wait_for_message('/map', OccupancyGrid)     # get map with metadata
             raw_map_data_numpy = np.asarray(raw_map.data)               # 1d map -> np.ndarray
 
@@ -144,9 +152,26 @@ class TurtleBotSlamExplorer:
                                                                      raw_map.info.width))  # to 2d with right size
             # Occupancy grid explanation: -1 - unknown, 100 - Occupied, 0 - not occupied #
 
+            # FETCHING COSTMAP #
+
+            # get costmap with metadata:
+            raw_costmap = rospy.wait_for_message('/move_base/global_costmap/costmap', OccupancyGrid)
+            raw_costmap_data_numpy = np.asarray(raw_map.data)  # 1d map -> np.ndarray
+            # reshaping 1d np.ndarray to 2d with right size:
+            raw_costmap_data_numpy_reshape = raw_costmap_data_numpy.reshape((raw_costmap.info.height,
+                                                                     raw_costmap.info.width))
+
+            # costmap explanation: -1 - unknown, 0 -> 100 - probability of occupancy
+
+            # DEBUG
+
+            print('H of map: ', raw_map.info.height, '; H of costmap', raw_costmap.info.height, '\n')
+            print('B of map: ', raw_map.info.width, '; B of costmap', raw_costmap.info.width, '\n')
+
             # FINDING THE FRONTIER (A ROBOT'S GOAL)
 
-            goal_coords = self.frontier_detection(raw_map_data_numpy_reshape)
+            goal_coords = self.frontier_detection(raw_map_data_numpy_reshape, raw_costmap_data_numpy_reshape)
+            print('This is goal coords:', goal_coords)
 
             # SETTING THE FRAMES AND RETURNING CALCULATED TRANSFORMATION
 
@@ -162,15 +187,20 @@ class TurtleBotSlamExplorer:
                 goal.target_pose.pose.orientation.w = 1.0
 
                 self.action_client.send_goal_and_wait(goal)
-
-            # return raw_map_data_numpy_reshape
+            # if raw_map_data_numpy_reshape is not None and raw_costmap_data_numpy_reshape.all() is not None:
+            #     return raw_map_data_numpy_reshape, raw_costmap_data_numpy_reshape
+            # else:
+            #     return None
 
 
 def main():
     rospy.init_node('slam_explorer_n')
     slam_explorer = TurtleBotSlamExplorer()
+    #x, y =#
     slam_explorer.explore()
-    # pd.DataFrame(x).to_csv("~/Desktop/map.csv")
+    # if x is not None and y is not None:
+    #     pd.DataFrame(y).to_csv("~/Desktop/costmap.csv")
+    #     pd.DataFrame(y).to_csv("~/Desktop/costmap.csv")
 
 
 if __name__ == '__main__':
