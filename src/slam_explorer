@@ -9,6 +9,7 @@ from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from geometry_msgs.msg import Transform, TransformStamped, Vector3, Quaternion
 import tf2_ros  # lib for translating and rotating the frames
 from random import randint
+from actionlib_msgs.msg import GoalStatus
 
 
 class TurtleBotSlamExplorer:
@@ -29,6 +30,8 @@ class TurtleBotSlamExplorer:
         self.tf2_buffer = tf2_ros.Buffer()  # stores all frames
         self.tf2_listener = tf2_ros.TransformListener(self.tf2_buffer)  # listens for new frames and calculating
                                                                         # translation and rotation between them
+
+        self.status = GoalStatus                                        # status of the moving to the goal
 
     # FUNCTION, WHICH MAKES NEW FRAME BY TRANSFORMING FROM OLD AND SENDS IT OUT TO BUFFER
     def add_new_transformed_frame(self, parent_frame_id: str, child_frame_id: str, translation: dict, rotation: dict):
@@ -139,6 +142,11 @@ class TurtleBotSlamExplorer:
 
         return goal_coords
 
+    # FUNCTION, WHICH FETCHES STATUS OF THE TURTLEBOT, WHILE IT GOES TO THE GOAL
+    def status_fetch(self, status, result):
+
+        print(" (*) This is status: ", status, '\n')
+
     def explore(self):
 
         while not rospy.is_shutdown():
@@ -163,13 +171,8 @@ class TurtleBotSlamExplorer:
 
             # costmap explanation: -1 - unknown, 0 -> 100 - probability of occupancy
 
-            # DEBUG
-
-            print('H of map: ', raw_map.info.height, '; H of costmap', raw_costmap.info.height, '\n')
-            print('B of map: ', raw_map.info.width, '; B of costmap', raw_costmap.info.width, '\n')
-
             # FINDING THE FRONTIER (A ROBOT'S GOAL)
-
+            # TODO: write condition, that it looks to new coordinates if status is 3, 4 etc...
             goal_coords = self.frontier_detection(raw_map_data_numpy_reshape, raw_costmap_data_numpy_reshape)
             print('This is goal coords:', goal_coords)
 
@@ -186,7 +189,8 @@ class TurtleBotSlamExplorer:
                 goal.target_pose.pose.position.y = resulting_transformation.transform.translation.y
                 goal.target_pose.pose.orientation.w = 1.0
 
-                self.action_client.send_goal_and_wait(goal)
+                self.action_client.send_goal(goal, self.status_fetch)
+                self.action_client.wait_for_result()
             # if raw_map_data_numpy_reshape is not None and raw_costmap_data_numpy_reshape.all() is not None:
             #     return raw_map_data_numpy_reshape, raw_costmap_data_numpy_reshape
             # else:
@@ -196,7 +200,6 @@ class TurtleBotSlamExplorer:
 def main():
     rospy.init_node('slam_explorer_n')
     slam_explorer = TurtleBotSlamExplorer()
-    #x, y =#
     slam_explorer.explore()
     # if x is not None and y is not None:
     #     pd.DataFrame(y).to_csv("~/Desktop/costmap.csv")
