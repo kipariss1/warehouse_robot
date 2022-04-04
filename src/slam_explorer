@@ -115,7 +115,7 @@ class TurtleBotSlamExplorer:
                 tf2_ros.ConnectivityException,
                 tf2_ros.ExtrapolationException):
 
-            rospy.loginfo('ERROR: Lookup transform!')
+            rospy.loginfo('ERROR: Lookup transform between frames!')
             return None
 
         #############################################################################
@@ -130,7 +130,7 @@ class TurtleBotSlamExplorer:
 
         # searching of unknown cells in map with low cost of going there (doesn't have walls or angles around it)
         frontier_indices = np.where((raw_map_data_numpy_reshape == -1) &
-                                    (raw_costmap_data_numpy_reshape < 30))
+                                    (raw_costmap_data_numpy_reshape < 20))
 
         if not frontier_indices:
             rospy.loginfo('ERROR: Frontier finding!')
