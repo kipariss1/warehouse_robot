@@ -9,7 +9,6 @@ from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from geometry_msgs.msg import Transform, TransformStamped, Vector3, Quaternion
 import tf2_ros  # lib for translating and rotating the frames
 from random import randint
-from actionlib_msgs.msg import GoalStatus
 
 
 class TurtleBotSlamExplorer:
@@ -32,6 +31,7 @@ class TurtleBotSlamExplorer:
                                                                         # translation and rotation between them
 
         self.status_buffer: int = 0                                     # stores last status of the goal
+
         self.first_goal: bool = True                                    # flag, which indicates, that robot goes
                                                                         # to it's first goal
 
@@ -44,7 +44,7 @@ class TurtleBotSlamExplorer:
         new_transform_stamped.child_frame_id = child_frame_id  # adding child frame
 
         # definition of new frame's rotation and translation parameters
-        lower_left_corner_transform = Transform(
+        new_transform = Transform(
             translation=Vector3(
                 x=translation["x"],
                 y=translation["y"],
@@ -53,12 +53,12 @@ class TurtleBotSlamExplorer:
                 x=rotation["x"],
                 y=rotation["y"],
                 z=rotation["z"],
-                w=rotation["w"]  # direction usually = 1
+                w=rotation["w"]  # orientation of robot at the goal, usually = 1
             )
 
         )
 
-        new_transform_stamped.transform = lower_left_corner_transform  # adding of transformation to object
+        new_transform_stamped.transform = new_transform  # adding of transformation to object
 
         # sending out the transformed frame
         self.tf2_broadcaster.sendTransform(new_transform_stamped)
@@ -66,8 +66,9 @@ class TurtleBotSlamExplorer:
         return child_frame_id
 
     # FUNCTION SETS TWO NEW FRAMES ('CELL(0,0)' FRAME <- /map FRAME; 'GOAL' FRAME <- 'CELL(0,0)' FRAME) AND CALCULATES
-    # TRANSFORMATION FROM ORIGIN /map FRAME TO 'GOAL' FRAME (WHICH IS EQUIVALENT TO MOVING THE MAP FRAME TO (0,0),
-    # that's why it's called set_zeroed_frame)
+    # TRANSFORMATION FROM ORIGIN /map FRAME TO 'GOAL' FRAME, THEN SEND TRANSFORMATION BETWEEN THEM
+    # (WHICH IS EQUIVALENT TO MOVING THE MAP FRAME TO (0,0),
+    # that's why it's called set_zeroed_frame_and_transform)
     def set_zeroed_map_frame_and_transform(self, raw_map: tuple, goal_coords: dict):
 
         raw_map_resolution = raw_map.info.resolution  # resolution of map [m/cell]
@@ -121,7 +122,7 @@ class TurtleBotSlamExplorer:
 
             rospy.loginfo('ERROR: Lookup transform between frames!')
             transform_errors = True
-            self.status_buffer = 4              # if tf2_ros can't find transform, then it's canceled goal
+            self.status_buffer = 4              # if tf2_ros can't find transform, then goal is cancelled (status: 4)
             return None, transform_errors
 
         #############################################################################
@@ -151,7 +152,7 @@ class TurtleBotSlamExplorer:
     # FUNCTION, WHICH FETCHES STATUS OF THE TURTLEBOT, WHILE IT GOES TO THE GOAL
     def status_fetch(self, status, result):
 
-        # Meaning:
+        # Meaning of status:
         # 0  - The goal has yet to be processed by the action server
         # 1  - The goal is currently being processed by the action server
         # 2  - The goal received a cancel request after it started executing
@@ -201,8 +202,9 @@ class TurtleBotSlamExplorer:
 
             print("This is 1.DEBUG : \n (*) Status: ",  self.status_buffer, "\n (*) First goal flag: ", self.first_goal, "\n") # DEBUG
 
-            # if goal is completed or it's canceled by tf2_ros (couldn't find transform or goal unreachabele)
-            # node, we can lookup new transforms:
+            # if goal is completed (status: 3) or it's canceled by tf2_ros node(status:4,
+            # couldn't find transform or goal unreachabele)
+            # ,we can lookup new transforms:
             if self.status_buffer == 3 or self.status_buffer == 4 or self.first_goal:
 
                 print("This is 2.DEBUG : \n (*) Status: ", self.status_buffer, "\n (*) First goal flag: ",
