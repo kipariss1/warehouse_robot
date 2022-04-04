@@ -31,7 +31,9 @@ class TurtleBotSlamExplorer:
         self.tf2_listener = tf2_ros.TransformListener(self.tf2_buffer)  # listens for new frames and calculating
                                                                         # translation and rotation between them
 
-        self.status = GoalStatus                                        # status of the moving to the goal
+        self.status_buffer: int = 0                                     # stores last status of the goal
+        self.first_goal: bool = True                                    # flag, which indicates, that robot goes
+                                                                        # to it's first goal
 
     # FUNCTION, WHICH MAKES NEW FRAME BY TRANSFORMING FROM OLD AND SENDS IT OUT TO BUFFER
     def add_new_transformed_frame(self, parent_frame_id: str, child_frame_id: str, translation: dict, rotation: dict):
@@ -66,7 +68,7 @@ class TurtleBotSlamExplorer:
     # FUNCTION SETS TWO NEW FRAMES ('CELL(0,0)' FRAME <- /map FRAME; 'GOAL' FRAME <- 'CELL(0,0)' FRAME) AND CALCULATES
     # TRANSFORMATION FROM ORIGIN /map FRAME TO 'GOAL' FRAME (WHICH IS EQUIVALENT TO MOVING THE MAP FRAME TO (0,0),
     # that's why it's called set_zeroed_frame)
-    def set_zeroed_map_frame(self, raw_map: tuple, goal_coords: dict):
+    def set_zeroed_map_frame_and_transform(self, raw_map: tuple, goal_coords: dict):
 
         raw_map_resolution = raw_map.info.resolution  # resolution of map [m/cell]
 
@@ -109,14 +111,18 @@ class TurtleBotSlamExplorer:
             resulting_tranformation = self.tf2_buffer.lookup_transform('map',
                                                                        'goal coordinates',
                                                                        rospy.Time())
-            return resulting_tranformation
+            transform_errors = False
+
+            return resulting_tranformation, transform_errors
 
         except (tf2_ros.LookupException,
                 tf2_ros.ConnectivityException,
                 tf2_ros.ExtrapolationException):
 
             rospy.loginfo('ERROR: Lookup transform between frames!')
-            return None
+            transform_errors = True
+            self.status_buffer = 4              # if tf2_ros can't find transform, then it's canceled goal
+            return None, transform_errors
 
         #############################################################################
         # End of Getting the translation between original /map frame and goal frame #
@@ -145,7 +151,27 @@ class TurtleBotSlamExplorer:
     # FUNCTION, WHICH FETCHES STATUS OF THE TURTLEBOT, WHILE IT GOES TO THE GOAL
     def status_fetch(self, status, result):
 
+        # Meaning:
+        # 0  - The goal has yet to be processed by the action server
+        # 1  - The goal is currently being processed by the action server
+        # 2  - The goal received a cancel request after it started executing
+        # 3  - The goal was achieved successfully by the action server (Terminal State)
+        # 4  - The goal was aborted during execution by the action server due
+        #      to some failure (Terminal State)
+        # 5  - The goal was rejected by the action server without being processed,
+        #      because the goal was unattainable or invalid (Terminal State)
+        # 6  - The goal received a cancel request after it started executing
+        #      and has not yet completed execution
+        # 7  - The goal received a cancel request before it started executing,
+        #      but the action server has not yet confirmed that the goal is canceled
+        # 8  - The goal received a cancel request before it started executing
+        #      and was successfully cancelled (Terminal State)
+        # 9  - An action client can determine that a goal is LOST. This should not be
+        #      sent over the wire by an action server
         print(" (*) This is status: ", status, '\n')
+        print(" (*) This is result: ", result, '\n')
+
+        self.status_buffer = status     # writing status to the class property "int" variable
 
     def explore(self):
 
@@ -172,29 +198,56 @@ class TurtleBotSlamExplorer:
             # costmap explanation: -1 - unknown, 0 -> 100 - probability of occupancy
 
             # FINDING THE FRONTIER (A ROBOT'S GOAL)
-            # TODO: write condition, that it looks to new coordinates if status is 3, 4 etc...
-            goal_coords = self.frontier_detection(raw_map_data_numpy_reshape, raw_costmap_data_numpy_reshape)
-            print('This is goal coords:', goal_coords)
 
-            # SETTING THE FRAMES AND RETURNING CALCULATED TRANSFORMATION
+            print("This is 1.DEBUG : \n (*) Status: ",  self.status_buffer, "\n (*) First goal flag: ", self.first_goal, "\n") # DEBUG
 
-            resulting_transformation = self.set_zeroed_map_frame(raw_map, goal_coords)
+            # if goal is completed or it's canceled by tf2_ros (couldn't find transform or goal unreachabele)
+            # node, we can lookup new transforms:
+            if self.status_buffer == 3 or self.status_buffer == 4 or self.first_goal:
 
-            # SENDING THE GOAL TO THE TURTLEBOT #
-            if resulting_transformation:
-                goal = MoveBaseGoal()
-                goal.target_pose.header.frame_id = "map"
-                goal.target_pose.header.stamp = rospy.Time.now()
-                goal.target_pose.pose.position.x = resulting_transformation.transform.translation.x
-                goal.target_pose.pose.position.y = resulting_transformation.transform.translation.y
-                goal.target_pose.pose.orientation.w = 1.0
+                print("This is 2.DEBUG : \n (*) Status: ", self.status_buffer, "\n (*) First goal flag: ",
+                      self.first_goal, "\n")  # DEBUG
 
-                self.action_client.send_goal(goal, self.status_fetch)
-                self.action_client.wait_for_result()
-            # if raw_map_data_numpy_reshape is not None and raw_costmap_data_numpy_reshape.all() is not None:
-            #     return raw_map_data_numpy_reshape, raw_costmap_data_numpy_reshape
-            # else:
-            #     return None
+                # setting the 'first goal' flag to zero
+                if self.first_goal:
+                    self.first_goal = False
+
+                print("This is 3.DEBUG : \n (*) Status: ", self.status_buffer, "\n (*) First goal flag: ",
+                      self.first_goal, "\n")  # DEBUG
+
+                goal_coords = self.frontier_detection(raw_map_data_numpy_reshape, raw_costmap_data_numpy_reshape)
+                print('This is goal coords:', goal_coords)
+
+                # SETTING THE FRAMES AND RETURNING CALCULATED TRANSFORMATION
+
+                resulting_transformation, transform_errors = self.set_zeroed_map_frame_and_transform(raw_map,
+                                                                                                     goal_coords)
+
+                print("This is 4.DEBUG : \n (*) Status: ", self.status_buffer, "\n (*) First goal flag: ",
+                      self.first_goal, "\n")  # DEBUG
+
+                # setting status to currently being proceded
+                if self.status_buffer == 3 or self.status_buffer == 4 and not transform_errors:
+                    self.status_buffer = 1
+
+                print("This is 5.DEBUG : \n (*) Status: ", self.status_buffer, "\n (*) First goal flag: ",
+                      self.first_goal, "\n")  # DEBUG
+
+                # SENDING THE GOAL TO THE TURTLEBOT #
+                if resulting_transformation:
+                    goal = MoveBaseGoal()
+                    goal.target_pose.header.frame_id = "map"
+                    goal.target_pose.header.stamp = rospy.Time.now()
+                    goal.target_pose.pose.position.x = resulting_transformation.transform.translation.x
+                    goal.target_pose.pose.position.y = resulting_transformation.transform.translation.y
+                    goal.target_pose.pose.orientation.w = 1.0
+
+                    self.action_client.send_goal(goal, self.status_fetch)
+                    self.action_client.wait_for_result()
+                # if raw_map_data_numpy_reshape is not None and raw_costmap_data_numpy_reshape.all() is not None:
+                #     return raw_map_data_numpy_reshape, raw_costmap_data_numpy_reshape
+                # else:
+                #     return None
 
 
 def main():
