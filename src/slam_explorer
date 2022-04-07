@@ -6,9 +6,11 @@ import numpy as np
 import pandas as pd  # for saving the map to csv
 import actionlib  # lib for placing the goal and robot autonomously navigating there
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
-from geometry_msgs.msg import Transform, TransformStamped, Vector3, Quaternion
+from geometry_msgs.msg import Transform, TransformStamped, Vector3, Quaternion, Pose, Point
 import tf2_ros  # lib for translating and rotating the frames
 from random import randint
+from visualization_msgs.msg import Marker
+from std_msgs.msg import Header, ColorRGBA
 
 
 class TurtleBotSlamExplorer:
@@ -34,6 +36,9 @@ class TurtleBotSlamExplorer:
 
         self.first_goal: bool = True                                    # flag, which indicates, that robot goes
                                                                         # to it's first goal
+
+        # rviz visualization
+        self.marker_publisher = rospy.Publisher('visualization_marker', Marker)
 
     # FUNCTION, WHICH MAKES NEW FRAME BY TRANSFORMING FROM OLD AND SENDS IT OUT TO BUFFER
     def add_new_transformed_frame(self, parent_frame_id: str, child_frame_id: str, translation: dict, rotation: dict):
@@ -130,6 +135,13 @@ class TurtleBotSlamExplorer:
         #############################################################################
 
     #TODO: DFD
+    def frontier_detection_DFD(self, raw_map_data_numpy_reshape: np.ndarray,
+                           raw_costmap_data_numpy_reshape: np.ndarray) -> dict:
+
+        goal_coords = {"x": None, "y": None}
+
+        return goal_coords
+
     # FOR NOW THIS IS NAIVE FRONTIER DETECTING ALGORITHM, RANDOMLY CHOSING UNKNOWN CELLS ON THE MAP
     def frontier_detection(self, raw_map_data_numpy_reshape: np.ndarray,
                            raw_costmap_data_numpy_reshape: np.ndarray) -> dict:
@@ -179,6 +191,8 @@ class TurtleBotSlamExplorer:
     def explore(self):
 
         while not rospy.is_shutdown():
+
+            self.show_text_in_rviz('Hello world!')
 
             # FETCHING MAP #
 
