@@ -129,6 +129,7 @@ class TurtleBotSlamExplorer:
         # End of Getting the translation between original /map frame and goal frame #
         #############################################################################
 
+    #TODO: DFD
     # FOR NOW THIS IS NAIVE FRONTIER DETECTING ALGORITHM, RANDOMLY CHOSING UNKNOWN CELLS ON THE MAP
     def frontier_detection(self, raw_map_data_numpy_reshape: np.ndarray,
                            raw_costmap_data_numpy_reshape: np.ndarray) -> dict:
