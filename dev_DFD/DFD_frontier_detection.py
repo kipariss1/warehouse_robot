@@ -22,10 +22,11 @@ def frontier_detection_DFD(raw_map_data_numpy_reshape: np.ndarray,
 
 gradient = frontier_detection_DFD(map, None)
 
-cv2.namedWindow('win_name', cv2.WINDOW_NORMAL)
-cv2.imshow('win_name', gradient)
-cv2.resizeWindow('win_name', 1600, 900)
+# CV2 SETUP
+cv2.namedWindow('win_name', cv2.WINDOW_NORMAL)      # new window, named 'win_name'
+cv2.imshow('win_name', gradient)                    # show image on window 'win_name' made of numpy.ndarray
+cv2.resizeWindow('win_name', 1600, 900)             # resizing window on my resolution
 
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+cv2.waitKey(0)                                      # wait for key pressing
+cv2.destroyAllWindows()                             # close all windows
 
