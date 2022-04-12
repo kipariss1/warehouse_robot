@@ -1,20 +1,19 @@
+import numpy as np
 
-## It will be datatype
+# IT IS DATATYPE FOR STORING CELLS OF THE CLUSTER
+
 
 class Cluster:
 
-    def __init__(self, starting_point, map_for_searching):
+    def __init__(self, starting_point: dict, map_id: str):
 
-        self.starting_point = starting_point        # starting point from which cluster is being searched further
-        self.map_for_searching = map_for_searching  # map on which, the cluster is initialised
-        self.width: int                             # width of cluster
-        self.height: int                            # height of cluster
-        self.top_b: int                             # top border of cluster
-        self.bottom_b: int                          # bottom border of cluster
-        self.left_b: int                            # left border of cluster
-        self.right_b: int                           # right border of cluster
-        self.number_of_elements: int                # number of pixels in cluster
-        self.coords_of_elements: list               # list of all coordinates
+        self.starting_point = starting_point            # starting point from which cluster is being searched further
+        self.list_of_cells = np.asarray([[], []])       # list of cells of cluster
+        self.map_id = map_id                            # id of the map, on which clustering is conducted
+
+        # Appending starting point to the cluster
+        np.append(self.list_of_cells[0], starting_point["i"])
+        np.append(self.list_of_cells[1], starting_point["j"])
 
     def calculate_width(self):
 
@@ -28,8 +27,9 @@ class Cluster:
 
         pass
 
-    def add_pixel(self):
+    def add_pixel(self, i, j):
 
-        # TODO: add pixel to the list of coordinates
+        print("This point was added to cluster: ", "[", str(i), ", ", str(j), "] \n")
 
-        pass
+        np.append(self.list_of_cells[0], i)
+        np.append(self.list_of_cells[1], j)
