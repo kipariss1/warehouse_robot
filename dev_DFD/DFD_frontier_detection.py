@@ -4,6 +4,7 @@ import cv2
 import time
 from math import sqrt
 from ClusterClass import Cluster
+import copy
 
 
 ## Importing the csv
@@ -63,41 +64,49 @@ def check_neighbours(nmap_mag, i, j, cluster):
     if nmap_mag[i][j - 1] == 255:
 
         cluster.add_pixel(i, j - 1)
+        nmap_mag[i][j - 1] = 0
         check_neighbours(nmap_mag, i, j - 1, cluster)
 
     if nmap_mag[i - 1][j] == 255:
 
         cluster.add_pixel(i - 1, j)
+        nmap_mag[i - 1][j] = 0
         check_neighbours(nmap_mag, i - 1, j, cluster)
 
     if nmap_mag[i - 1][j - 1] == 255:
 
         cluster.add_pixel(i - 1, j - 1)
+        nmap_mag[i - 1][j - 1] = 0
         check_neighbours(nmap_mag, i - 1, j - 1, cluster)
 
     if nmap_mag[i][j + 1] == 255:
 
         cluster.add_pixel(i, j + 1)
+        nmap_mag[i][j + 1] = 0
         check_neighbours(nmap_mag, i, j + 1, cluster)
 
     if nmap_mag[i + 1][j] == 255:
 
         cluster.add_pixel(i + 1, j)
+        nmap_mag[i + 1][j] = 0
         check_neighbours(nmap_mag, i + 1, j, cluster)
 
     if nmap_mag[i + 1][j + 1] == 255:
 
         cluster.add_pixel(i + 1,  j + 1)
+        nmap_mag[i + 1][j + 1] = 0
         check_neighbours(nmap_mag, i + 1, j + 1, cluster)
 
     if nmap_mag[i - 1][j + 1] == 255:
 
         cluster.add_pixel(i - 1, j + 1)
+        nmap_mag[i - 1][j + 1] = 0
         check_neighbours(nmap_mag, i - 1, j + 1, cluster)
 
     if nmap_mag[i + 1][j - 1] == 255:
 
         cluster.add_pixel(i + 1, j - 1)
+        nmap_mag[i + 1][j - 1] = 0
         check_neighbours(nmap_mag, i + 1, j - 1, cluster)
 
     return True
@@ -105,34 +114,45 @@ def check_neighbours(nmap_mag, i, j, cluster):
 
 def clustering(nmap_mag):
 
-    frontier_indices = np.where(nmap_mag == 255)    # searching for all cells on magnitude map, which have high gradient
+    cluster_list: list = []                         # creating list, which will store all cluster objects
+    nmap_mag_copy = copy.deepcopy(nmap_mag)         # making copy of magnitude map, to be able to delete pixels from it
+    j_cl = 1                                        # numerator of clusters
+
+    frontier_indices = np.where(nmap_mag_copy == 255)   # searching for all cells on magnitude map,
+                                                        # which have high gradient
+
     frontier_indices = np.asarray(frontier_indices)     # transforming to np.ndarray
-    cluster_list: list                              # creating list, which will store all cluster data-types
 
-    for i_fi in range(0, np.shape(frontier_indices)[1] - 1):
+    while frontier_indices.any():
 
-        starting_point = {"i": frontier_indices[0][i_fi], "j": frontier_indices[1][i_fi]}
+        frontier_indices = np.where(nmap_mag_copy == 255)   # searching for all cells on magnitude map,
+                                                            # which have high gradient
 
+        frontier_indices = np.asarray(frontier_indices)     # transforming to np.ndarray
+
+        starting_point = {"i": frontier_indices[0][0], "j": frontier_indices[1][0]}     # define starting point
+                                                                                        # check_neighbours function
+
+        nmap_mag_copy[frontier_indices[0][0]][frontier_indices[1][0]] = 0               # deleting pixel, that is
+                                                                                        # already in cluster
         # Defining new cluster:
-        j_cl = 1                   # numerator of clusters
         print(str(j_cl) + " cluster !!!")
         exec("global cluster_" + str(j_cl))                                         # making new cluster global
         exec("cluster_" + str(j_cl) + " = Cluster(starting_point, 'nmag_map')")     # initialising new cluster object
 
         results: bool = False
 
-        # TODO: copy of nmap_mag, send it to check_neighbours and change value on it 255 -> 0
+        exec("results = check_neighbours(nmap_mag_copy,  frontier_indices[0][0], "
+             "frontier_indices[1][0], cluster_" + str(j_cl) + ")")
 
-        exec("results = check_neighbours(nmap_mag,  frontier_indices[0][i_fi], "
-             "frontier_indices[1][i_fi], cluster_" + str(j_cl) + ")")
+        #TODO: rewrite cluster without "exec", instead: 1) add id: 1,2,3 to ClusterClass
+                                                      # 2) cluster_list.append(copy.deepcopy(NewCluster))
+                                                      # 3) purge if results: condition
+                                                      # 4) Add dev_DFD/__pycache__ to gitignore
 
         if results:                 # check_neighbours returns true if all neighbours == 255 are added to cluster
 
             exec("cluster_list.append(cluster_" + str(j_cl) + ")")     # appending cluster to the cluster list
-
-            # deleting the starting point as it is in cluster now:
-            np.delete(frontier_indices, 0, i_fi)
-            np.delete(frontier_indices, 1, i_fi)
 
             j_cl = j_cl + 1                                   # increase cluster enumerator
 

@@ -1,6 +1,6 @@
-import numpy as np
-
 # IT IS DATATYPE FOR STORING CELLS OF THE CLUSTER
+
+import numpy as np
 
 
 class Cluster:
