@@ -118,7 +118,7 @@ def clustering(nmap_mag):
 
     cluster_list: list = []                         # creating list, which will store all cluster objects
     nmap_mag_copy = copy.deepcopy(nmap_mag)         # making copy of magnitude map, to be able to delete pixels from it
-    j_cl = 1                                        # numerator of clusters
+    j_cl = 0                                        # numerator of clusters
 
     frontier_indices = np.where(nmap_mag_copy == 255)   # searching for all cells on magnitude map,
                                                         # which have high gradient
@@ -147,7 +147,11 @@ def clustering(nmap_mag):
         # cv2.waitKey(0)  # wait for key pressing
         # cv2.destroyAllWindows()  # close all windows
         #
-        # # DEBUG
+        # # DEBUG END
+
+        new_cluster.calculate_number_of_elements()          # calculate the number of cells in cluster
+        if new_cluster.number_of_elements > 15:
+            new_cluster.calculate_centroid()                    # calculate centroid of the cluster
 
         cluster_list.append(copy.deepcopy(new_cluster))     # appending cluster to the cluster list
 
