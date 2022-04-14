@@ -19,22 +19,24 @@ map = np.asarray(df)
 # MAIN FUNCTIONS #
 def map_gradient(map_I: np.ndarray):
 
+    map_I_copy = copy.deepcopy(map_I)
+
     # assigning uint8 data type to the map, so value "-1" -> 255 and the biggest gradient is between -1: not known and
     # 100: occupied
-    map_I.astype(np.uint8)
+    map_I_copy.astype(np.uint8)
 
     # initializing gradient magnitude of the map
-    nmap_mag = np.zeros((map_I.shape[0], map_I.shape[1]), dtype="uint8")
+    nmap_mag = np.zeros((map_I_copy.shape[0], map_I_copy.shape[1]), dtype="uint8")
 
     # Sobel kernel
     Gx = np.asarray([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype="uint8")
     Gy = np.asarray([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype="uint8")
 
     # Convoluting over whole map with mask, except 1 pixel border
-    for i in range(1, map_I.shape[0] - 2):
-        for j in range(1, map_I.shape[1] - 2):
+    for i in range(1, map_I_copy.shape[0] - 2):
+        for j in range(1, map_I_copy.shape[1] - 2):
 
-            submap = map_I[i - 1: i + 2, j - 1: j + 2]      # submap 3x3 pixels
+            submap = map_I_copy[i - 1: i + 2, j - 1: j + 2]      # submap 3x3 pixels
 
             ncell_I_x = (submap * Gx).sum()             # element-wise multiplying and getting sum of all elements
             ncell_I_y = (submap * Gy).sum()             # element-wise multiplying and getting sum of all elements
@@ -56,7 +58,7 @@ def map_gradient(map_I: np.ndarray):
                                                                                         # value (and for viz)
 
     # REMOVE return map_I, needed only for debugging
-    return nmap_mag, map_I
+    return nmap_mag, map_I_copy
 
 
 def check_neighbours(nmap_mag, i, j, cluster):
@@ -138,24 +140,37 @@ def clustering(nmap_mag):
 
         check_neighbours(nmap_mag_copy,  frontier_indices[0][0], frontier_indices[1][0], new_cluster)
 
-        # # DEBUG
-        #
+        # DEBUG
+
         # cv2.namedWindow('CLUSTER '+str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
         # cv2.imshow('CLUSTER '+str(j_cl), nmap_mag_copy)  # show image on window 'win_name' made of numpy.ndarray
         # cv2.resizeWindow('CLUSTER '+str(j_cl), 1600, 900)  # resizing window on my resolution
         #
         # cv2.waitKey(0)  # wait for key pressing
         # cv2.destroyAllWindows()  # close all windows
-        #
-        # # DEBUG END
+
+        # DEBUG END
 
         new_cluster.calculate_number_of_elements()          # calculate the number of cells in cluster
-        if new_cluster.number_of_elements > 15:
+        if new_cluster.number_of_elements > 15:             # Add self.minimum_number_of_elements <- min size of fr-ier
             new_cluster.calculate_centroid()                    # calculate centroid of the cluster
 
-        cluster_list.append(copy.deepcopy(new_cluster))     # appending cluster to the cluster list
+            # DEBUG
 
-        j_cl = j_cl + 1                                   # increase cluster enumerator
+            # nmap_mag[new_cluster.cluster_centroid["i"]][new_cluster.cluster_centroid["j"]] = 120
+            #
+            # cv2.namedWindow('CLUSTER '+str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+            # cv2.imshow('CLUSTER '+str(j_cl), nmap_mag)  # show image on window 'win_name' made of numpy.ndarray
+            # cv2.resizeWindow('CLUSTER '+str(j_cl), 1600, 900)  # resizing window on my resolution
+            #
+            # cv2.waitKey(0)  # wait for key pressing
+            # cv2.destroyAllWindows()  # close all windows
+
+            # DEBUG END
+
+            cluster_list.append(copy.deepcopy(new_cluster))     # appending cluster to the cluster list
+
+            j_cl = j_cl + 1                                   # increase cluster enumerator
 
         frontier_indices = np.where(nmap_mag_copy == 255)   # searching again for all cells on magnitude map,
                                                             # which have gradient ==255, not 0
@@ -167,25 +182,43 @@ def clustering(nmap_mag):
 
 
 def frontier_detection_DFD(raw_map_data_numpy_reshape: np.ndarray,
-                           raw_costmap_data_numpy_reshape: np.ndarray) -> dict:
-    pass
+                           raw_costmap_data_numpy_reshape: np.ndarray, robot_position) -> dict:
+
+    gradient, _ = map_gradient(raw_map_data_numpy_reshape)
+    cluster_list = clustering(gradient)
+
+    distance_from_centroid = []
+
+    for cluster in cluster_list:
+
+        distance_from_centroid.append(sqrt((robot_position["x"] - cluster.cluster_centroid["i"])**2
+                                           + (robot_position["y"] - cluster.cluster_centroid["j"])**2))
+
+    min_distance = min(distance_from_centroid)
+    min_distance_idx = distance_from_centroid.index(min_distance)
+
+    goal_coords = {"x": cluster_list[min_distance_idx].cluster_centroid["i"],
+                   "y": cluster_list[min_distance_idx].cluster_centroid["j"]}
+
+    return goal_coords
 
 
 # END OF MAIN FUNCTIONS #
 
 # BEGIN OF SETUP FOR TESTING
 a = time.time_ns()
-gradient, origin_map = map_gradient(map)
-cluster_list = clustering(gradient)
+goal_coords = frontier_detection_DFD(map, None, {"x": 40, "y": 21})
+# gradient, origin_map = map_gradient(map)
+# cluster_list = clustering(gradient)
 b = time.time_ns()
 print("This is how much time it takes to do DFD: ", (b-a)*10**-9, "[s]")
 
-# # CV2 SETUP
-#
+# CV2 SETUP
+
 # cv2.namedWindow('map', cv2.WINDOW_NORMAL)      # new window, named 'win_name'
 # cv2.imshow('map', map)                    # show image on window 'win_name' made of numpy.ndarray
 # cv2.resizeWindow('map', 1600, 900)             # resizing window on my resolution
-
+#
 # cv2.waitKey(0)                                      # wait for key pressing
 # cv2.destroyAllWindows()                             # close all windows
 
