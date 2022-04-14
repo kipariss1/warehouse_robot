@@ -8,13 +8,14 @@ class Cluster:
     def __init__(self, starting_point: dict, map_id: str, cluster_id: int):
 
         self.starting_point = starting_point            # starting point from which cluster is being searched further
-        self.list_of_cells = np.asarray([[], []])       # list of cells of cluster
+        self.list_of_cells = np.asarray([[], []], dtype=int)       # list of cells of cluster
         self.map_id = map_id                            # id of the map, on which clustering is conducted
         self.cluster_id = cluster_id                    # enumerator of the cluster
 
         # Appending starting point to the cluster
-        np.append(self.list_of_cells[0], starting_point["i"])
-        np.append(self.list_of_cells[1], starting_point["j"])
+        self.list_of_cells = np.concatenate((self.list_of_cells, np.asarray([[starting_point["i"]],
+                                                                             [starting_point["j"]]])), axis=1)
+        self.list_of_cells.astype(int, copy=False)
 
     def calculate_width(self):
 
@@ -30,7 +31,10 @@ class Cluster:
 
     def add_pixel(self, i, j):
 
-        print("This point was added to cluster: ", "[", str(i), ", ", str(j), "] \n")
+        print("This point was added to cluster: ", "[", str(i), ", ", str(j), "] \n")  # DEBUG
 
-        np.append(self.list_of_cells[0], i)
-        np.append(self.list_of_cells[1], j)
+        # Appending pixel to the cluster
+        self.list_of_cells = np.concatenate((self.list_of_cells, np.asarray([[i], [j]])), axis=1)
+        self.list_of_cells.astype(int, copy=False)
+
+        print(self.list_of_cells)  # DEBUG

@@ -7,11 +7,13 @@ from ClusterClass import Cluster
 import copy
 
 
-## Importing the csv
+# IMPORTING THE CSV MAP
 
 df = pd.read_csv('map.csv', sep=',', header=None)
 
 map = np.asarray(df)
+
+# END OF IMPORTING THE CSV MAP
 
 
 # MAIN FUNCTIONS #
@@ -125,30 +127,37 @@ def clustering(nmap_mag):
 
     while frontier_indices.any():
 
-        frontier_indices = np.where(nmap_mag_copy == 255)   # searching for all cells on magnitude map,
-                                                            # which have high gradient
-
-        frontier_indices = np.asarray(frontier_indices)     # transforming to np.ndarray
-
         starting_point = {"i": frontier_indices[0][0], "j": frontier_indices[1][0]}     # define starting point
                                                                                         # check_neighbours function
 
         nmap_mag_copy[frontier_indices[0][0]][frontier_indices[1][0]] = 0               # deleting pixel, that is
                                                                                         # already in cluster
         # Defining new cluster:
-        print(str(j_cl) + " cluster !!!")
+        print(str(j_cl) + " cluster !!!")  # DEBUG
         new_cluster = Cluster(starting_point, 'nmap_mag', j_cl)
 
-        results = check_neighbours(nmap_mag_copy,  frontier_indices[0][0], frontier_indices[1][0], new_cluster)
+        check_neighbours(nmap_mag_copy,  frontier_indices[0][0], frontier_indices[1][0], new_cluster)
 
-        #TODO: rewrite cluster without "exec", instead: 1) add id: 1,2,3 to ClusterClass
-                                                      # 2) cluster_list.append(copy.deepcopy(NewCluster))
-                                                      # 3) purge if results: condition
-                                                      # 4) Add dev_DFD/__pycache__ to gitignore
+        # # DEBUG
+        #
+        # cv2.namedWindow('CLUSTER '+str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+        # cv2.imshow('CLUSTER '+str(j_cl), nmap_mag_copy)  # show image on window 'win_name' made of numpy.ndarray
+        # cv2.resizeWindow('CLUSTER '+str(j_cl), 1600, 900)  # resizing window on my resolution
+        #
+        # cv2.waitKey(0)  # wait for key pressing
+        # cv2.destroyAllWindows()  # close all windows
+        #
+        # # DEBUG
 
         cluster_list.append(copy.deepcopy(new_cluster))     # appending cluster to the cluster list
 
         j_cl = j_cl + 1                                   # increase cluster enumerator
+
+        frontier_indices = np.where(nmap_mag_copy == 255)   # searching again for all cells on magnitude map,
+                                                            # which have gradient ==255, not 0
+                                                            # after check_neighbours function
+
+        frontier_indices = np.asarray(frontier_indices)     # transforming to np.ndarray
 
     return cluster_list
 
@@ -159,6 +168,8 @@ def frontier_detection_DFD(raw_map_data_numpy_reshape: np.ndarray,
 
 
 # END OF MAIN FUNCTIONS #
+
+# BEGIN OF SETUP FOR TESTING
 a = time.time_ns()
 gradient, origin_map = map_gradient(map)
 cluster_list = clustering(gradient)
@@ -182,9 +193,9 @@ print("This is how much time it takes to do DFD: ", (b-a)*10**-9, "[s]")
 # cv2.destroyAllWindows()                             # close all windows
 
 
-cv2.namedWindow('gradient', cv2.WINDOW_NORMAL)      # new window, named 'win_name'
-cv2.imshow('gradient', gradient)                    # show image on window 'win_name' made of numpy.ndarray
-cv2.resizeWindow('gradient', 1600, 900)             # resizing window on my resolution
-
-cv2.waitKey(0)                                      # wait for key pressing
-cv2.destroyAllWindows()                             # close all windows
+# cv2.namedWindow('gradient', cv2.WINDOW_NORMAL)      # new window, named 'win_name'
+# cv2.imshow('gradient', gradient)                    # show image on window 'win_name' made of numpy.ndarray
+# cv2.resizeWindow('gradient', 1600, 900)             # resizing window on my resolution
+#
+# cv2.waitKey(0)                                      # wait for key pressing
+# cv2.destroyAllWindows()                             # close all windows
