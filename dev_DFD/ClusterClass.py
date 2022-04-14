@@ -5,11 +5,12 @@ import numpy as np
 
 class Cluster:
 
-    def __init__(self, starting_point: dict, map_id: str):
+    def __init__(self, starting_point: dict, map_id: str, cluster_id: int):
 
         self.starting_point = starting_point            # starting point from which cluster is being searched further
         self.list_of_cells = np.asarray([[], []])       # list of cells of cluster
         self.map_id = map_id                            # id of the map, on which clustering is conducted
+        self.cluster_id = cluster_id                    # enumerator of the cluster
 
         # Appending starting point to the cluster
         np.append(self.list_of_cells[0], starting_point["i"])

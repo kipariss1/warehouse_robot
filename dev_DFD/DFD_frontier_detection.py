@@ -137,24 +137,18 @@ def clustering(nmap_mag):
                                                                                         # already in cluster
         # Defining new cluster:
         print(str(j_cl) + " cluster !!!")
-        exec("global cluster_" + str(j_cl))                                         # making new cluster global
-        exec("cluster_" + str(j_cl) + " = Cluster(starting_point, 'nmag_map')")     # initialising new cluster object
+        new_cluster = Cluster(starting_point, 'nmap_mag', j_cl)
 
-        results: bool = False
-
-        exec("results = check_neighbours(nmap_mag_copy,  frontier_indices[0][0], "
-             "frontier_indices[1][0], cluster_" + str(j_cl) + ")")
+        results = check_neighbours(nmap_mag_copy,  frontier_indices[0][0], frontier_indices[1][0], new_cluster)
 
         #TODO: rewrite cluster without "exec", instead: 1) add id: 1,2,3 to ClusterClass
                                                       # 2) cluster_list.append(copy.deepcopy(NewCluster))
                                                       # 3) purge if results: condition
                                                       # 4) Add dev_DFD/__pycache__ to gitignore
 
-        if results:                 # check_neighbours returns true if all neighbours == 255 are added to cluster
+        cluster_list.append(copy.deepcopy(new_cluster))     # appending cluster to the cluster list
 
-            exec("cluster_list.append(cluster_" + str(j_cl) + ")")     # appending cluster to the cluster list
-
-            j_cl = j_cl + 1                                   # increase cluster enumerator
+        j_cl = j_cl + 1                                   # increase cluster enumerator
 
     return cluster_list
 
