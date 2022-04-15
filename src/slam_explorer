@@ -11,7 +11,8 @@ import tf2_ros  # lib for translating and rotating the frames
 from random import randint
 from visualization_msgs.msg import Marker   # for custom markers in RViz
 from std_msgs.msg import Header, ColorRGBA  # for custom markers in RViz
-from DFD_class.DFD_frontier_detection import DFDdetectorClass
+#TODO: make ROS understand, that I want to include DFDdetectorClass
+from DFD_class.DFD_frontier_detection import DFDdetectorClass       # import custom class
 
 
 
