@@ -6,14 +6,15 @@ from math import sqrt
 from ClusterClass import Cluster
 import copy
 
+if __name__ == "__main__":
 
-# IMPORTING THE CSV MAP
+    # IMPORTING THE CSV MAP
 
-df = pd.read_csv('map.csv', sep=',', header=None)
+    df = pd.read_csv('map.csv', sep=',', header=None)
 
-map = np.asarray(df)
+    map = np.asarray(df)
 
-# END OF IMPORTING THE CSV MAP
+    # END OF IMPORTING THE CSV MAP
 
 
 class DFDdetectorClass:
@@ -220,34 +221,36 @@ class DFDdetectorClass:
 
 # END OF MAIN FUNCTIONS #
 
-# BEGIN OF SETUP FOR TESTING
-a = time.time_ns()
-detector = DFDdetectorClass(0.5, 0.033)
-goal_coords = detector.frontier_detection_DFD(map, None, {"x": 40, "y": 21})
-print("This is goal coords", goal_coords)
-b = time.time_ns()
-print("This is how much time it takes to do DFD: ", (b-a)*10**-9, "[s]")
+if __name__ == "__main__":          # if u run script directly
 
-# CV2 SETUP
+    # BEGIN OF SETUP FOR TESTING
+    a = time.time_ns()
+    detector = DFDdetectorClass(0.5, 0.033)
+    goal_coords = detector.frontier_detection_DFD(map, None, {"x": 40, "y": 21})
+    print("This is goal coords", goal_coords)
+    b = time.time_ns()
+    print("This is how much time it takes to do DFD: ", (b-a)*10**-9, "[s]")
 
-# cv2.namedWindow('map', cv2.WINDOW_NORMAL)      # new window, named 'win_name'
-# cv2.imshow('map', map)                    # show image on window 'win_name' made of numpy.ndarray
-# cv2.resizeWindow('map', 1600, 900)             # resizing window on my resolution
-#
-# cv2.waitKey(0)                                      # wait for key pressing
-# cv2.destroyAllWindows()                             # close all windows
+    # CV2 SETUP
 
-# cv2.namedWindow('original_map', cv2.WINDOW_NORMAL)      # new window, named 'win_name'
-# cv2.imshow('original_map', origin_map)                    # show image on window 'win_name' made of numpy.ndarray
-# cv2.resizeWindow('original_map', 1600, 900)             # resizing window on my resolution
-#
-# cv2.waitKey(0)                                      # wait for key pressing
-# cv2.destroyAllWindows()                             # close all windows
+    # cv2.namedWindow('map', cv2.WINDOW_NORMAL)      # new window, named 'win_name'
+    # cv2.imshow('map', map)                    # show image on window 'win_name' made of numpy.ndarray
+    # cv2.resizeWindow('map', 1600, 900)             # resizing window on my resolution
+    #
+    # cv2.waitKey(0)                                      # wait for key pressing
+    # cv2.destroyAllWindows()                             # close all windows
+
+    # cv2.namedWindow('original_map', cv2.WINDOW_NORMAL)      # new window, named 'win_name'
+    # cv2.imshow('original_map', origin_map)                    # show image on window 'win_name' made of numpy.ndarray
+    # cv2.resizeWindow('original_map', 1600, 900)             # resizing window on my resolution
+    #
+    # cv2.waitKey(0)                                      # wait for key pressing
+    # cv2.destroyAllWindows()                             # close all windows
 
 
-# cv2.namedWindow('gradient', cv2.WINDOW_NORMAL)      # new window, named 'win_name'
-# cv2.imshow('gradient', gradient)                    # show image on window 'win_name' made of numpy.ndarray
-# cv2.resizeWindow('gradient', 1600, 900)             # resizing window on my resolution
-#
-# cv2.waitKey(0)                                      # wait for key pressing
-# cv2.destroyAllWindows()                             # close all windows
+    # cv2.namedWindow('gradient', cv2.WINDOW_NORMAL)      # new window, named 'win_name'
+    # cv2.imshow('gradient', gradient)                    # show image on window 'win_name' made of numpy.ndarray
+    # cv2.resizeWindow('gradient', 1600, 900)             # resizing window on my resolution
+    #
+    # cv2.waitKey(0)                                      # wait for key pressing
+    # cv2.destroyAllWindows()                             # close all windows
