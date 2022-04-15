@@ -11,8 +11,9 @@ import tf2_ros  # lib for translating and rotating the frames
 from random import randint
 from visualization_msgs.msg import Marker   # for custom markers in RViz
 from std_msgs.msg import Header, ColorRGBA  # for custom markers in RViz
-#TODO: fix this \/ import
-from DFD_class.DFD_frontier_detection import DFDdetectorClass   # doesn't work
+from DFD_class.DFD_frontier_detection import DFDdetectorClass
+
+
 
 
 class TurtleBotSlamExplorer:

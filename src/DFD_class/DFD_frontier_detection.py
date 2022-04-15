@@ -225,8 +225,8 @@ if __name__ == "__main__":          # if u run script directly
 
     # BEGIN OF SETUP FOR TESTING
     a = time.time_ns()
-    detector = DFDdetectorClass(0.5, 0.033)
-    goal_coords = detector.frontier_detection_DFD(map, None, {"x": 40, "y": 21})
+    detector = DFDdetectorClass(0.5, 0.9)
+    goal_coords = detector.frontier_detection_DFD(map, None, {"x": 40, "y": 21}, 0.033)
     print("This is goal coords", goal_coords)
     b = time.time_ns()
     print("This is how much time it takes to do DFD: ", (b-a)*10**-9, "[s]")
