@@ -1,4 +1,5 @@
 .swp
 .save
-/dev_DFD/__pycache__/
-/dev_DFD/.idea
+/src/DFD_class/__pycache__/
+/src/DFD_class/.idea
+/dev_DFD/
