@@ -9,8 +9,14 @@ from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from geometry_msgs.msg import Transform, TransformStamped, Vector3, Quaternion, Pose, Point
 import tf2_ros  # lib for translating and rotating the frames
 from random import randint
-from visualization_msgs.msg import Marker
-from std_msgs.msg import Header, ColorRGBA
+from visualization_msgs.msg import Marker   # for custom markers in RViz
+from std_msgs.msg import Header, ColorRGBA  # for custom markers in RViz
+import sys
+import os
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(SCRIPT_DIR))
+from .DFD_class.DFD_frontier_detection import DFDdetectorClass
 
 
 class TurtleBotSlamExplorer:
@@ -134,14 +140,6 @@ class TurtleBotSlamExplorer:
         # End of Getting the translation between original /map frame and goal frame #
         #############################################################################
 
-    #TODO: DFD
-    def frontier_detection_DFD(self, raw_map_data_numpy_reshape: np.ndarray,
-                           raw_costmap_data_numpy_reshape: np.ndarray) -> dict:
-
-        goal_coords = {"x": None, "y": None}
-
-        return goal_coords
-
     # FOR NOW THIS IS NAIVE FRONTIER DETECTING ALGORITHM, RANDOMLY CHOSING UNKNOWN CELLS ON THE MAP
     def frontier_detection(self, raw_map_data_numpy_reshape: np.ndarray,
                            raw_costmap_data_numpy_reshape: np.ndarray) -> dict:
@@ -190,6 +188,8 @@ class TurtleBotSlamExplorer:
     # THIS IS MAIN FUNCTION OF CLASS, IT IMPLEMENTS AUTONOMOUS EXPLORATION
     def explore(self):
 
+        frontier_detector = DFDdetectorClass(0.2, 0.9)      # min frontier size is 0.2 [m], percentage cutoff is 90 [%]
+
         while not rospy.is_shutdown():
 
             self.show_text_in_rviz('Hello world!')
@@ -233,7 +233,17 @@ class TurtleBotSlamExplorer:
                 print("This is 3.DEBUG : \n (*) Status: ", self.status_buffer, "\n (*) First goal flag: ",
                       self.first_goal, "\n")  # DEBUG
 
-                goal_coords = self.frontier_detection(raw_map_data_numpy_reshape, raw_costmap_data_numpy_reshape)
+                # (!) FRONTIER DETECTION PART
+
+                # * NAIVE:
+                # goal_coords = self.frontier_detection(raw_map_data_numpy_reshape, raw_costmap_data_numpy_reshape)
+
+                # * DFD:
+                goal_coords = frontier_detector.frontier_detection_DFD(raw_map_data_numpy_reshape,
+                                                                       raw_costmap_data_numpy_reshape,
+                                                                       {"x": 0, "y": 0},
+                                                                       raw_map.info.resolution)
+
                 print('This is goal coords:', goal_coords)
 
                 # SETTING THE FRAMES AND RETURNING CALCULATED TRANSFORMATION

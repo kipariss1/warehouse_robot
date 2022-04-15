@@ -18,13 +18,18 @@ map = np.asarray(df)
 
 class DFDdetectorClass:
 
-    def __init__(self, min_size_frontier: float, map_resolution: float):
+    def __init__(self, min_size_frontier: float, percentage_cutoff: float):
 
         self.min_size_frontier = min_size_frontier      # minimum size of the frontier
-        self.map_resolution = map_resolution            # map resolution to calculate minimum number of elements
 
-        # calculating minimum numbers of elements for frontier
-        self.min_num_of_elements = int(self.min_size_frontier/self.map_resolution)
+        if percentage_cutoff > 1 or percentage_cutoff < 0:
+            raise ValueError("DFD Error: The value of percentage cutoff should be between 0 and 1!")
+
+        self.map_resolution: float = 0                      # map resolution to calculate min_number_of_elements
+        self.min_num_of_elements: int = 0                   # will be calculated later
+
+        self.percentage_cutoff = percentage_cutoff      # specifying how much top percentage
+                                                        # of gradient to left (0.3 = 70 %)
 
     def map_gradient(self, map_I: np.ndarray):
 
@@ -55,16 +60,16 @@ class DFDdetectorClass:
         # Filtering out: leaving only the biggest gradient
         max_gradient = np.amax(nmap_mag)                                    # get max value of gradient
 
-        percentage_cutoff = 0.9                                             # specifying how much top percentage
-                                                                            # of gradient to left (0.3 = 70 %)
-
-        nmap_mag = np.where(nmap_mag < percentage_cutoff * max_gradient, 0, nmap_mag)       # filter out all cells,
+        nmap_mag = np.where(nmap_mag < self.percentage_cutoff * max_gradient, 0, nmap_mag)  # filter out all cells,
                                                                                             # except ones with
-                                                                                            # the highest gradient (top 90%)
+                                                                                            # the highest gradient
+                                                                                            # (top 90%)
 
-        nmap_mag = np.where(nmap_mag >= percentage_cutoff * max_gradient, 255, nmap_mag)    # make top highest gradient:
-                                                                                            # 255, due to dtype - highest
-                                                                                            # value (and for viz)
+        nmap_mag = np.where(nmap_mag >= self.percentage_cutoff * max_gradient, 255, nmap_mag)   # make top highest
+                                                                                                # gradient:
+                                                                                                # 255, due to dtype
+                                                                                                # - highest
+                                                                                                # value (and for viz)
 
         return nmap_mag
 
@@ -187,7 +192,12 @@ class DFDdetectorClass:
         return cluster_list
 
     def frontier_detection_DFD(self, raw_map_data_numpy_reshape: np.ndarray,
-                               raw_costmap_data_numpy_reshape: np.ndarray, robot_position) -> dict:
+                               raw_costmap_data_numpy_reshape: np.ndarray, robot_position,
+                               map_resolution: float) -> dict:
+
+        self.map_resolution = map_resolution
+
+        self.min_num_of_elements = int(self.min_size_frontier/self.map_resolution)
 
         gradient = self.map_gradient(raw_map_data_numpy_reshape)
         cluster_list = self.clustering(gradient)
