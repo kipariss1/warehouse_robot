@@ -38,14 +38,14 @@ class Cluster:
         self.cluster_centroid["i"] = int(sum_coord_i/self.number_of_elements)
         self.cluster_centroid["j"] = int(sum_coord_j/self.number_of_elements)
 
-        print(self.cluster_centroid)        # DEBUG
+        # print(self.cluster_centroid)        # DEBUG
 
     def add_pixel(self, i, j):
 
-        print("This point was added to cluster: ", "[", str(i), ", ", str(j), "] \n")  # DEBUG
+        # print("This point was added to cluster: ", "[", str(i), ", ", str(j), "] \n")  # DEBUG
 
         # Appending pixel to the cluster
         self.list_of_cells = np.concatenate((self.list_of_cells, np.asarray([[i], [j]])), axis=1)
         self.list_of_cells.astype(int, copy=False)
 
-        print(self.list_of_cells)  # DEBUG
+        # print(self.list_of_cells)  # DEBUG
