@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+import random
 
 import rospy
 from nav_msgs.msg import OccupancyGrid, Odometry
@@ -11,6 +12,7 @@ import tf2_ros  # lib for translating and rotating the frames
 from random import randint
 import copy
 from math import sqrt
+import cv2
 from visualization_msgs.msg import Marker   # for custom markers in RViz
 from std_msgs.msg import Header, ColorRGBA  # for custom markers in RViz
 # from DFD_class.DFD_frontier_detection import DFDdetectorClass       # import custom class
@@ -186,6 +188,17 @@ class DFDdetectorClass:
 
         frontier_indices = np.asarray(frontier_indices)     # transforming to np.ndarray
 
+        # DEBUG
+
+        cv2.namedWindow('CLUSTER ' + str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+        cv2.imshow('CLUSTER ' + str(j_cl), nmap_mag_copy)  # show image on window 'win_name' made of numpy.ndarray
+        cv2.resizeWindow('CLUSTER ' + str(j_cl), 1600, 900)  # resizing window on my resolution
+
+        cv2.waitKey(0)  # wait for key pressing
+        cv2.destroyAllWindows()  # close all windows
+
+        # DEBUG END
+
         while frontier_indices.any():
 
             starting_point = {"i": frontier_indices[0][0], "j": frontier_indices[1][0]}     # define starting point
@@ -199,25 +212,14 @@ class DFDdetectorClass:
 
             self.check_neighbours(nmap_mag_copy,  frontier_indices[0][0], frontier_indices[1][0], new_cluster)
 
-            # DEBUG
-
-            # cv2.namedWindow('CLUSTER '+str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
-            # cv2.imshow('CLUSTER '+str(j_cl), nmap_mag_copy)  # show image on window 'win_name' made of numpy.ndarray
-            # cv2.resizeWindow('CLUSTER '+str(j_cl), 1600, 900)  # resizing window on my resolution
-            #
-            # cv2.waitKey(0)  # wait for key pressing
-            # cv2.destroyAllWindows()  # close all windows
-
-            # DEBUG END
-
             new_cluster.calculate_number_of_elements()          # calculate the number of cells in cluster
             if new_cluster.number_of_elements > self.min_num_of_elements:
                 new_cluster.calculate_centroid()                    # calculate centroid of the cluster
 
                 # DEBUG
 
-                # nmap_mag[new_cluster.cluster_centroid["i"]][new_cluster.cluster_centroid["j"]] = 120
-                #
+                nmap_mag[new_cluster.cluster_centroid["i"]][new_cluster.cluster_centroid["j"]] = 120
+
                 # cv2.namedWindow('CLUSTER '+str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
                 # cv2.imshow('CLUSTER '+str(j_cl), nmap_mag)  # show image on window 'win_name' made of numpy.ndarray
                 # cv2.resizeWindow('CLUSTER '+str(j_cl), 1600, 900)  # resizing window on my resolution
@@ -237,6 +239,17 @@ class DFDdetectorClass:
 
             frontier_indices = np.asarray(frontier_indices)     # transforming to np.ndarray
 
+        # DEBUG
+
+        cv2.namedWindow('CLUSTER ' + str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+        cv2.imshow('CLUSTER ' + str(j_cl), nmap_mag)  # show image on window 'win_name' made of numpy.ndarray
+        cv2.resizeWindow('CLUSTER ' + str(j_cl), 1600, 900)  # resizing window on my resolution
+
+        cv2.waitKey(0)  # wait for key pressing
+        cv2.destroyAllWindows()  # close all windows
+
+        # DEBUG END
+
         return cluster_list
 
     def frontier_detection_DFD(self, raw_map_data_numpy_reshape: np.ndarray,
@@ -251,23 +264,37 @@ class DFDdetectorClass:
         cluster_list = self.clustering(gradient)
 
         distance_from_centroid = []
-        min_costmap_value = 90
+        min_costmap_value = 20
 
-        # loop for searching min distance with max safety value on costmap
-        while not distance_from_centroid or min_costmap_value > 0:
+        #TODO: min costmap value dynamic evaluation
 
-            for cluster in cluster_list:
-                # if costmap value of centroid < min_costmap_value
-                if raw_costmap_data_numpy_reshape[cluster.cluster_centroid["i"]][cluster.cluster_centroid["j"]] \
-                        > min_costmap_value:
+        for cluster in cluster_list:
+            # if costmap value of centroid < min_costmap_value
+            if raw_costmap_data_numpy_reshape[cluster.cluster_centroid["i"]][cluster.cluster_centroid["j"]] \
+                    < min_costmap_value:
 
-                    distance_from_centroid.append(sqrt((robot_position["x"] - cluster.cluster_centroid["i"])**2
-                                                       + (robot_position["y"] - cluster.cluster_centroid["j"])**2))
+                distance_from_centroid.append(sqrt((robot_position["x"] - cluster.cluster_centroid["i"])**2
+                                                   + (robot_position["y"] - cluster.cluster_centroid["j"])**2))
 
-            min_costmap_value -= 5
 
-        min_distance = min(distance_from_centroid)
+        # min_distance = min(distance_from_centroid)
+        min_distance = random.choice(distance_from_centroid)
         min_distance_idx = distance_from_centroid.index(min_distance)
+
+        # DEBUG
+        # raw_costmap_data_numpy_reshape_copy = copy.deepcopy(raw_costmap_data_numpy_reshape)
+        # raw_costmap_data_numpy_reshape_copy.astype(np.uint8)
+        # raw_costmap_data_numpy_reshape_copy[cluster_list[min_distance_idx].cluster_centroid["i"]][
+        #     cluster_list[min_distance_idx].cluster_centroid["j"]] = 120
+        #
+        # cv2.namedWindow('GOAL', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+        # cv2.imshow('GOAL', raw_costmap_data_numpy_reshape_copy)  # show image on window 'win_name' made of numpy.ndarray
+        # cv2.resizeWindow('GOAL', 1600, 900)  # resizing window on my resolution
+        #
+        # cv2.waitKey(0)  # wait for key pressing
+        # cv2.destroyAllWindows()  # close all windows
+
+        # END OF DEBUG
 
         goal_coords = {"x": cluster_list[min_distance_idx].cluster_centroid["i"],
                        "y": cluster_list[min_distance_idx].cluster_centroid["j"]}
@@ -438,29 +465,19 @@ class TurtleBotSlamExplorer:
 
         self.status_buffer = status     # writing status to the class property "int" variable
 
+    # get pose of robot in odom frame
     def get_pose_of_robot(self):
 
         raw_odom_message = rospy.wait_for_message('/odom', Odometry)
-
-        try:
-            resulting_tranformation = self.tf2_buffer.lookup_transform('odom',
-                                                                       'lower left corner',
-                                                                       rospy.Time())
-
-        except (tf2_ros.LookupException,
-                tf2_ros.ConnectivityException,
-                tf2_ros.ExtrapolationException):
-            pass
-
-        if resulting_tranformation:
-            return {"x": raw_odom_message.pose.pose.position.x + resulting_tranformation.transform.translation.x,
-                    "y": raw_odom_message.pose.pose.position.y + resulting_tranformation.transform.translation.y}
+        #TODO: get position of robot in lower left corner frame
+        return {"x": raw_odom_message.pose.pose.position.x,
+                "y": raw_odom_message.pose.pose.position.y}
 
     # THIS IS MAIN FUNCTION OF CLASS, IT IMPLEMENTS AUTONOMOUS EXPLORATION
     def explore(self):
 
         # min frontier size is 0.2 [m], 0.9 - percentage cutoff is 90 [%]
-        frontier_detector = DFDdetectorClass(0.002, 0.9)
+        frontier_detector = DFDdetectorClass(0.5, 0.9)
 
         while not rospy.is_shutdown():
 
@@ -511,9 +528,6 @@ class TurtleBotSlamExplorer:
                 # goal_coords = self.frontier_detection(raw_map_data_numpy_reshape, raw_costmap_data_numpy_reshape)
 
                 # # * DFD:
-                # curr_pose = self.get_pose_of_robot()
-                # print(curr_pose)
-
                 goal_coords = frontier_detector.frontier_detection_DFD(raw_map_data_numpy_reshape,
                                                                        raw_costmap_data_numpy_reshape,
                                                                        {"x": int(raw_map.info.height/2),
