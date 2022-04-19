@@ -3,7 +3,7 @@ import numpy as np
 import cv2
 import time
 from math import sqrt
-from ClusterClass import Cluster
+from DFD_class.ClusterClass import Cluster
 import copy
 
 if __name__ == "__main__":

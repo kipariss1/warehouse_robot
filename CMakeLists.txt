@@ -164,10 +164,14 @@ include_directories(
  catkin_install_python(PROGRAMS
    src/controller
    src/slam_explorer
+   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+ )
+
+ catkin_install_python(PROGRAMS
    src/DFD_class/ClusterClass.py
    src/DFD_class/DFD_frontier_detection.py
    src/DFD_class/__init__.py      
-   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}/DFD_class/
  )
 
 ## Mark executables for installation
