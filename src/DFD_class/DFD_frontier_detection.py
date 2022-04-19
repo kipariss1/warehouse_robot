@@ -169,14 +169,14 @@ class DFDdetectorClass:
 
                 # DEBUG
 
-                # nmap_mag[new_cluster.cluster_centroid["i"]][new_cluster.cluster_centroid["j"]] = 120
-                #
-                # cv2.namedWindow('CLUSTER '+str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
-                # cv2.imshow('CLUSTER '+str(j_cl), nmap_mag)  # show image on window 'win_name' made of numpy.ndarray
-                # cv2.resizeWindow('CLUSTER '+str(j_cl), 1600, 900)  # resizing window on my resolution
-                #
-                # cv2.waitKey(0)  # wait for key pressing
-                # cv2.destroyAllWindows()  # close all windows
+                nmap_mag[new_cluster.cluster_centroid["i"]][new_cluster.cluster_centroid["j"]] = 120
+
+                cv2.namedWindow('CLUSTER '+str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+                cv2.imshow('CLUSTER '+str(j_cl), nmap_mag)  # show image on window 'win_name' made of numpy.ndarray
+                cv2.resizeWindow('CLUSTER '+str(j_cl), 1600, 900)  # resizing window on my resolution
+
+                cv2.waitKey(0)  # wait for key pressing
+                cv2.destroyAllWindows()  # close all windows
 
                 # DEBUG END
 
@@ -201,6 +201,18 @@ class DFDdetectorClass:
         self.min_num_of_elements = int(self.min_size_frontier/self.map_resolution)
 
         gradient = self.map_gradient(raw_map_data_numpy_reshape)
+
+        # DEBUG
+
+        cv2.namedWindow('gradient', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+        cv2.imshow('gradient', gradient)  # show image on window 'win_name' made of numpy.ndarray
+        cv2.resizeWindow('gradient', 1600, 900)  # resizing window on my resolution
+
+        cv2.waitKey(0)  # wait for key pressing
+        cv2.destroyAllWindows()  # close all windows
+
+        # END OF DEBUG
+
         cluster_list = self.clustering(gradient)
 
         distance_from_centroid = []

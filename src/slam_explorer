@@ -473,6 +473,8 @@ class TurtleBotSlamExplorer:
                                                                      raw_map.info.width))  # to 2d with right size
             # Occupancy grid explanation: -1 - unknown, 100 - Occupied, 0 - not occupied #
 
+            # pd.DataFrame(raw_map_data_numpy_reshape).to_csv("~/Desktop/costmap.csv")
+
             # FETCHING COSTMAP #
 
             # get costmap with metadata:
@@ -546,19 +548,12 @@ class TurtleBotSlamExplorer:
 
                     self.action_client.send_goal(goal, self.status_fetch)
                     self.action_client.wait_for_result()
-                # if raw_map_data_numpy_reshape is not None and raw_costmap_data_numpy_reshape.all() is not None:
-                #     return raw_map_data_numpy_reshape, raw_costmap_data_numpy_reshape
-                # else:
-                #     return None
 
 
 def main():
     rospy.init_node('slam_explorer_n')
     slam_explorer = TurtleBotSlamExplorer()
     slam_explorer.explore()
-    # if x is not None and y is not None:
-    #     pd.DataFrame(y).to_csv("~/Desktop/costmap.csv")
-    #     pd.DataFrame(y).to_csv("~/Desktop/costmap.csv")
 
 
 if __name__ == '__main__':
