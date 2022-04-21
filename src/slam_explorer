@@ -269,7 +269,6 @@ class DFDdetectorClass:
         #TODO: min costmap value dynamic evaluation
 
         for cluster in cluster_list:
-            # if costmap value of centroid < min_costmap_value
             if raw_costmap_data_numpy_reshape[cluster.cluster_centroid["i"]][cluster.cluster_centroid["j"]] \
                     < min_costmap_value:
 
@@ -278,26 +277,31 @@ class DFDdetectorClass:
 
 
         # min_distance = min(distance_from_centroid)
-        min_distance = random.choice(distance_from_centroid)
+        min_distance = random.choice(distance_from_centroid)    #TODO: make min instead of random choice
         min_distance_idx = distance_from_centroid.index(min_distance)
 
         # DEBUG
-        # raw_costmap_data_numpy_reshape_copy = copy.deepcopy(raw_costmap_data_numpy_reshape)
-        # raw_costmap_data_numpy_reshape_copy.astype(np.uint8)
-        # raw_costmap_data_numpy_reshape_copy[cluster_list[min_distance_idx].cluster_centroid["i"]][
-        #     cluster_list[min_distance_idx].cluster_centroid["j"]] = 120
-        #
-        # cv2.namedWindow('GOAL', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
-        # cv2.imshow('GOAL', raw_costmap_data_numpy_reshape_copy)  # show image on window 'win_name' made of numpy.ndarray
-        # cv2.resizeWindow('GOAL', 1600, 900)  # resizing window on my resolution
-        #
-        # cv2.waitKey(0)  # wait for key pressing
-        # cv2.destroyAllWindows()  # close all windows
+        raw_costmap_data_numpy_reshape_copy = copy.deepcopy(raw_costmap_data_numpy_reshape)
+        raw_costmap_data_numpy_reshape_copy = raw_costmap_data_numpy_reshape_copy.astype(np.uint8)
+        raw_costmap_data_numpy_reshape_copy[cluster_list[min_distance_idx].cluster_centroid["i"]][
+            cluster_list[min_distance_idx].cluster_centroid["j"]] = 175
+
+        name = "Goal: "+str(cluster_list[min_distance_idx].cluster_centroid["i"])+" "\
+                   + str(cluster_list[min_distance_idx].cluster_centroid["j"])
+
+        cv2.namedWindow(name, cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+        cv2.imshow(name, raw_costmap_data_numpy_reshape_copy)  # show image on window 'win_name' made of numpy.ndarray
+        cv2.resizeWindow(name, 1600, 900)  # resizing window on my resolution
+
+        cv2.waitKey(0)  # wait for key pressing
+        cv2.destroyAllWindows()  # close all windows
 
         # END OF DEBUG
 
-        goal_coords = {"x": cluster_list[min_distance_idx].cluster_centroid["i"],
-                       "y": cluster_list[min_distance_idx].cluster_centroid["j"]}
+        goal_coords = {"y": cluster_list[min_distance_idx].cluster_centroid["i"],
+                       "x": cluster_list[min_distance_idx].cluster_centroid["j"]}
+
+        print("This is what comes out of DFD: \n", goal_coords)
 
         return goal_coords
 
