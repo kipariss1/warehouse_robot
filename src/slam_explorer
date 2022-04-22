@@ -289,14 +289,22 @@ class DFDdetectorClass:
 
         #TODO: min costmap value dynamic evaluation
 
-        for cluster in cluster_list:
+        if robot_position:
+            for cluster in cluster_list:
+                distance_from_centroid.append(sqrt((robot_position["x"] - cluster.cluster_centroid["i"]) ** 2
+                                                   + (robot_position["y"] - cluster.cluster_centroid["j"]) ** 2))
+            min_distance = min(distance_from_centroid)
+        else:
 
-            distance_from_centroid.append(sqrt((robot_position["x"] - cluster.cluster_centroid["i"])**2
-                                               + (robot_position["y"] - cluster.cluster_centroid["j"])**2))
+            robot_position = {"x": int(raw_costmap_data_numpy_reshape.shape[0]/2),
+                              "y": int(raw_costmap_data_numpy_reshape.shape[1]/2)}
 
+            for cluster in cluster_list:
+                distance_from_centroid.append(sqrt((robot_position["x"] - cluster.cluster_centroid["i"]) ** 2
+                                                   + (robot_position["y"] - cluster.cluster_centroid["j"]) ** 2))
+            min_distance = min(distance_from_centroid)
+            min_distance = random.choice(distance_from_centroid)    #TODO: make min instead of random choice
 
-        # min_distance = min(distance_from_centroid)
-        min_distance = random.choice(distance_from_centroid)    #TODO: make min instead of random choice
         min_distance_idx = distance_from_centroid.index(min_distance)
 
         # DEBUG
@@ -383,7 +391,7 @@ class TurtleBotSlamExplorer:
     # TRANSFORMATION FROM ORIGIN /map FRAME TO 'GOAL' FRAME, THEN SEND TRANSFORMATION BETWEEN THEM
     # (WHICH IS EQUIVALENT TO MOVING THE MAP FRAME TO (0,0),
     # that's why it's called set_zeroed_frame_and_transform)
-    def set_zeroed_map_frame_and_transform(self, raw_map: tuple, goal_coords: dict):
+    def set_zeroed_map_frame_and_transform(self, raw_map: tuple, goal_coords: dict, parent_frame: str, child_frame: str):
 
         raw_map_resolution = raw_map.info.resolution  # resolution of map [m/cell]
 
@@ -395,7 +403,7 @@ class TurtleBotSlamExplorer:
 
         # (*) GETTING THE TRANSFORM FROM /map FRAME ORIGIN TO THE CELL(0,0) IN THE MAP (LOWER LEFT CORNER) #
 
-        self.add_new_transformed_frame("map", "lower left corner",
+        self.add_new_transformed_frame(parent_frame, "lower left corner",
                                        # x coordinates in [m] of cell(0,0) on the /map frame
                                        {"x": raw_map.info.origin.position.x,
                                         # y coordinates in [m] of cell(0,0) on the /map frame
@@ -405,7 +413,7 @@ class TurtleBotSlamExplorer:
 
         # (*) GETTING THE TRANSFORM FROM lower left corner FRAME ORIGIN TO THE goal coordinates #
 
-        self.add_new_transformed_frame("lower left corner", "goal coordinates",
+        self.add_new_transformed_frame("lower left corner", child_frame,
                                        {"x": goal_coords["x"] * raw_map_resolution,
                                         "y": goal_coords["y"] * raw_map_resolution, "z": 0},
                                        {"x": 0, "y": 0, "z": 0, "w": 1})
@@ -489,12 +497,54 @@ class TurtleBotSlamExplorer:
         self.status_buffer = status     # writing status to the class property "int" variable
 
     # get pose of robot in odom frame
-    def get_pose_of_robot(self):
+    def get_pose_of_robot(self, raw_map):
 
         raw_odom_message = rospy.wait_for_message('/odom', Odometry)
         #TODO: get position of robot in lower left corner frame
-        return {"x": raw_odom_message.pose.pose.position.x,
-                "y": raw_odom_message.pose.pose.position.y}
+
+        # DEBUG
+        print("This is coordinates in odom frame:\n", {"x": raw_odom_message.pose.pose.position.x,
+                                                       "y": raw_odom_message.pose.pose.position.y})
+        # END OF DEBUG
+
+        # searching for transformation between "odom" frame and "map" frame
+        try:
+            tf_odom2map = self.tf2_buffer.lookup_transform('map',
+                                                           'odom',
+                                                           rospy.Time())
+
+        except (tf2_ros.LookupException,
+                tf2_ros.ConnectivityException,
+                tf2_ros.ExtrapolationException):
+            return None
+
+        # getting the resolution of the map
+        raw_map_resolution = raw_map.info.resolution
+
+        # coordinates in [pixels]
+        coords_in_map_frame_px = {"x": (raw_odom_message.pose.pose.position.x + tf_odom2map.transform.translation.x)
+                                       /raw_map_resolution,
+                                  "y": (raw_odom_message.pose.pose.position.y + tf_odom2map.transform.translation.y)
+                                       /raw_map_resolution}
+        # DEBUG
+        print("This is coordinates in map frame:\n", coords_in_map_frame_px)
+        #END OF DEBUG
+
+        res_tf, transform_errors = self.set_zeroed_map_frame_and_transform(raw_map,
+                                                                           coords_in_map_frame_px,
+                                                                           "map",
+                                                                           "pos_of_robot")
+        if res_tf:
+
+            # DEBUG
+            print("This is coordinates in lower left corner frame:\n", {"x": res_tf.transform.translation.x,
+                                                                        "y": res_tf.transform.translation.x})
+            # END OF DEBUG
+
+            return {"x": res_tf.transform.translation.x,
+                    "y": res_tf.transform.translation.y}
+        else:
+            return None
 
     # THIS IS MAIN FUNCTION OF CLASS, IT IMPLEMENTS AUTONOMOUS EXPLORATION
     def explore(self):
@@ -549,10 +599,10 @@ class TurtleBotSlamExplorer:
                 # goal_coords = self.frontier_detection(raw_map_data_numpy_reshape, raw_costmap_data_numpy_reshape)
 
                 # # * DFD:
+                pose_of_robot = self.get_pose_of_robot(raw_map)
                 goal_coords = frontier_detector.frontier_detection_DFD(raw_map_data_numpy_reshape,
                                                                        raw_costmap_data_numpy_reshape,
-                                                                       {"x": int(raw_map.info.height/2),
-                                                                        "y": int(raw_map.info.width/2)},
+                                                                       pose_of_robot,
                                                                        raw_map.info.resolution)
 
                 print('This is goal coords:', goal_coords)
@@ -560,7 +610,9 @@ class TurtleBotSlamExplorer:
                 # SETTING THE FRAMES AND RETURNING CALCULATED TRANSFORMATION
 
                 resulting_transformation, transform_errors = self.set_zeroed_map_frame_and_transform(raw_map,
-                                                                                                     goal_coords)
+                                                                                                     goal_coords,
+                                                                                                     "map",
+                                                                                                     "goal coordinates")
 
                 print("This is 4.DEBUG : \n (*) Status: ", self.status_buffer, "\n (*) First goal flag: ",
                       self.first_goal, "\n")  # DEBUG
