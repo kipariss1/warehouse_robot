@@ -81,47 +81,68 @@ class DFDdetectorClass:
         self.percentage_cutoff = percentage_cutoff      # specifying how much top percentage
                                                         # of gradient to left (0.3 = 70 %)
 
-    def map_gradient(self, map_I: np.ndarray):
+    def map_gradient(self, map_I: np.ndarray, kernel: str):
 
         map_I_copy = copy.deepcopy(map_I)
-
-        # assigning uint8 data type to the map, so value "-1" -> 255 and the biggest gradient is between -1: not known and
-        # 100: occupied
-        map_I_copy.astype(np.uint8)
 
         # initializing gradient magnitude of the map
         nmap_mag = np.zeros((map_I_copy.shape[0], map_I_copy.shape[1]), dtype="uint8")
 
-        # Sobel kernel
-        Gx = np.asarray([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype="uint8")
-        Gy = np.asarray([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype="uint8")
+        if kernel == "Sobel":
 
-        # Convoluting over whole map with mask, except 1 pixel border
-        for i in range(1, map_I_copy.shape[0] - 2):
-            for j in range(1, map_I_copy.shape[1] - 2):
+            map_I_copy = map_I_copy.astype(np.uint8)
+            # assigning uint8 data type to the map, so value "-1" -> 255 and the biggest gradient is between -1:
+            # not known and 100: occupied
 
-                submap = map_I_copy[i - 1: i + 2, j - 1: j + 2]      # submap 3x3 pixels
+            # Sobel kernel
+            Gx = np.asarray([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype="uint8")
+            Gy = np.asarray([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype="uint8")
 
-                ncell_I_x = (submap * Gx).sum()             # element-wise multiplying and getting sum of all elements
-                ncell_I_y = (submap * Gy).sum()             # element-wise multiplying and getting sum of all elements
+            # Convoluting over whole map with mask, except 1 pixel border
+            for i in range(1, map_I_copy.shape[0] - 2):
+                for j in range(1, map_I_copy.shape[1] - 2):
 
-                nmap_mag[i][j] = sqrt(ncell_I_x**2 + ncell_I_y**2)  # get magnitude of gradient (we don't need theta)
+                    submap = map_I_copy[i - 1: i + 2, j - 1: j + 2]      # submap 3x3 pixels
 
-        # Filtering out: leaving only the biggest gradient
-        max_gradient = np.amax(nmap_mag)                                    # get max value of gradient
+                    ncell_I_x = (submap * Gx).sum()             # element-wise multiplying and getting sum of all elements
+                    ncell_I_y = (submap * Gy).sum()             # element-wise multiplying and getting sum of all elements
 
-        nmap_mag = np.where(nmap_mag < self.percentage_cutoff * max_gradient, 0, nmap_mag)  # filter out all cells,
-                                                                                            # except ones with
-                                                                                            # the highest gradient
-                                                                                            # (top 90%)
+                    nmap_mag[i][j] = sqrt(ncell_I_x**2 + ncell_I_y**2)  # get magnitude of gradient (we don't need theta)
 
-        nmap_mag = np.where(nmap_mag >= self.percentage_cutoff * max_gradient, 255, nmap_mag)   # make top highest
-                                                                                                # gradient:
-                                                                                                # 255, due to dtype
-                                                                                                # - highest
-                                                                                                # value (and for viz)
+            # Filtering out: leaving only the biggest gradient
+            max_gradient = np.amax(nmap_mag)                                    # get max value of gradient
 
-        return nmap_mag
+            nmap_mag = np.where(nmap_mag < self.percentage_cutoff * max_gradient, 0, nmap_mag)  # filter out all cells,
+                                                                                                # except ones with
+                                                                                                # the highest gradient
+                                                                                                # (top 90%)
+
+            nmap_mag = np.where(nmap_mag >= self.percentage_cutoff * max_gradient, 255, nmap_mag)   # make top highest
+                                                                                                    # gradient:
+                                                                                                    # 255, due to dtype
+                                                                                                    # - highest
+                                                                                                    # value (and for viz)
+
+            return nmap_mag
+
+        elif kernel == "Gaussian":
+
+            G_g = np.asarray([[1, 2, 1], [2, 4, 2], [1, 2, 1]], dtype="uint8")
+
+            map_I_copy = np.where(map_I_copy == -1, 50, map_I_copy)
+
+            # Convoluting over whole map with mask, except 1 pixel border
+            for i in range(1, map_I_copy.shape[0] - 2):
+                for j in range(1, map_I_copy.shape[1] - 2):
+                    submap = map_I_copy[i - 1: i + 2, j - 1: j + 2]  # submap 3x3 pixels
+
+                    nmap_mag[i][j] = (submap * G_g).sum()  # element-wise multiplying and getting sum of all elements
+
+            return nmap_mag
+
+        else:
+
+            raise ValueError("This type of kernel is not accepted!")
 
     def check_neighbours(self, nmap_mag, i, j, cluster):
 
@@ -256,24 +277,22 @@ class DFDdetectorClass:
                                raw_costmap_data_numpy_reshape: np.ndarray, robot_position,
                                map_resolution: float) -> dict:
 
+
         self.map_resolution = map_resolution
 
         self.min_num_of_elements = int(self.min_size_frontier/self.map_resolution)
 
-        gradient = self.map_gradient(raw_map_data_numpy_reshape)
+        gradient = self.map_gradient(raw_map_data_numpy_reshape, "Sobel")
         cluster_list = self.clustering(gradient)
 
         distance_from_centroid = []
-        min_costmap_value = 20
 
         #TODO: min costmap value dynamic evaluation
 
         for cluster in cluster_list:
-            if raw_costmap_data_numpy_reshape[cluster.cluster_centroid["i"]][cluster.cluster_centroid["j"]] \
-                    < min_costmap_value:
 
-                distance_from_centroid.append(sqrt((robot_position["x"] - cluster.cluster_centroid["i"])**2
-                                                   + (robot_position["y"] - cluster.cluster_centroid["j"])**2))
+            distance_from_centroid.append(sqrt((robot_position["x"] - cluster.cluster_centroid["i"])**2
+                                               + (robot_position["y"] - cluster.cluster_centroid["j"])**2))
 
 
         # min_distance = min(distance_from_centroid)
@@ -494,16 +513,14 @@ class TurtleBotSlamExplorer:
                                                                      raw_map.info.width))  # to 2d with right size
             # Occupancy grid explanation: -1 - unknown, 100 - Occupied, 0 - not occupied #
 
-            # pd.DataFrame(raw_map_data_numpy_reshape).to_csv("~/Desktop/costmap.csv")
-
             # FETCHING COSTMAP #
 
             # get costmap with metadata:
             raw_costmap = rospy.wait_for_message('/move_base/global_costmap/costmap', OccupancyGrid)
-            raw_costmap_data_numpy = np.asarray(raw_map.data)  # 1d map -> np.ndarray
+            raw_costmap_data_numpy = np.asarray(raw_map.data, dtype=np.int8)  # 1d map -> np.ndarray
             # reshaping 1d np.ndarray to 2d with right size:
             raw_costmap_data_numpy_reshape = raw_costmap_data_numpy.reshape((raw_costmap.info.height,
-                                                                     raw_costmap.info.width))
+                                                                             raw_costmap.info.width))
 
             # costmap explanation: -1 - unknown, 0 -> 100 - probability of occupancy
 
