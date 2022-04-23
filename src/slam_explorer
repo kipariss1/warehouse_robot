@@ -509,9 +509,13 @@ class TurtleBotSlamExplorer:
 
         # searching for transformation between "odom" frame and "map" frame
         try:
-            tf_odom2map = self.tf2_buffer.lookup_transform('map',
-                                                           'odom',
+            tf_odom2map = self.tf2_buffer.lookup_transform("map",
+                                                           "odom",
                                                            rospy.Time())
+            # DEBUG
+            print("This is transformat in map frame:\n", {"x": tf_odom2map.transform.translation.x,
+                                                          "y": tf_odom2map.transform.translation.y})
+            # END OF DEBUG
 
         except (tf2_ros.LookupException,
                 tf2_ros.ConnectivityException,
@@ -521,36 +525,45 @@ class TurtleBotSlamExplorer:
         # getting the resolution of the map
         raw_map_resolution = raw_map.info.resolution
 
-        # coordinates in [pixels]
-        coords_in_map_frame_px = {"x": (raw_odom_message.pose.pose.position.x + tf_odom2map.transform.translation.x)
-                                       /raw_map_resolution,
-                                  "y": (raw_odom_message.pose.pose.position.y + tf_odom2map.transform.translation.y)
-                                       /raw_map_resolution}
+        # coordinates in [m]
+        coords_in_map_frame = {"x": (raw_odom_message.pose.pose.position.x - tf_odom2map.transform.translation.x),
+                               "y": (raw_odom_message.pose.pose.position.y - tf_odom2map.transform.translation.y)}
+
         # DEBUG
-        print("This is coordinates in map frame:\n", coords_in_map_frame_px)
+        print("This is coordinates in map frame:\n", coords_in_map_frame)
         #END OF DEBUG
 
-        res_tf, transform_errors = self.set_zeroed_map_frame_and_transform(raw_map,
-                                                                           coords_in_map_frame_px,
-                                                                           "map",
-                                                                           "pos_of_robot")
-        if res_tf:
-
+        try:
+            res_tf = self.tf2_buffer.lookup_transform("map",
+                                                      "lower left corner",
+                                                      rospy.Time())
             # DEBUG
-            print("This is coordinates in lower left corner frame:\n", {"x": res_tf.transform.translation.x,
-                                                                        "y": res_tf.transform.translation.x})
+            print("This is res transf  in map frame:\n", {"x": res_tf.transform.translation.x,
+                                                          "y": res_tf.transform.translation.y})
+
+            print("This is coordinates in lower_left_corner frame:\n", {"x": raw_odom_message.pose.pose.position.x
+                                                                             - tf_odom2map.transform.translation.x
+                                                                             - res_tf.transform.translation.x,
+                                                                        "y": raw_odom_message.pose.pose.position.y
+                                                                             - tf_odom2map.transform.translation.y
+                                                                             - res_tf.transform.translation.y})
             # END OF DEBUG
 
-            return {"x": res_tf.transform.translation.x,
-                    "y": res_tf.transform.translation.y}
-        else:
+            return {"x": (raw_odom_message.pose.pose.position.x - tf_odom2map.transform.translation.x
+                          - res_tf.transform.translation.x)/raw_map_resolution,
+                    "y": (raw_odom_message.pose.pose.position.y - tf_odom2map.transform.translation.y
+                          - res_tf.transform.translation.y)/raw_map_resolution}
+
+        except (tf2_ros.LookupException,
+                tf2_ros.ConnectivityException,
+                tf2_ros.ExtrapolationException):
             return None
 
     # THIS IS MAIN FUNCTION OF CLASS, IT IMPLEMENTS AUTONOMOUS EXPLORATION
     def explore(self):
 
-        # min frontier size is 0.2 [m], 0.9 - percentage cutoff is 90 [%]
-        frontier_detector = DFDdetectorClass(0.5, 0.9)
+        # min frontier size is 0.2 [m], 0.8 - percentage cutoff is 90 [%]
+        frontier_detector = DFDdetectorClass(0.2, 0.8)
 
         while not rospy.is_shutdown():
 
