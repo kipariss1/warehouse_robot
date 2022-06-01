@@ -53,7 +53,7 @@ class Cluster:
         self.cluster_centroid["i"] = int(sum_coord_i/self.number_of_elements)
         self.cluster_centroid["j"] = int(sum_coord_j/self.number_of_elements)
 
-        # print(self.cluster_centroid)        # DEBUG
+        # print(self.cluster_centroid)        #
 
     def add_pixel(self, i, j):
 
@@ -80,6 +80,8 @@ class DFDdetectorClass:
 
         self.percentage_cutoff = percentage_cutoff      # specifying how much top percentage
                                                         # of gradient to left (0.3 = 70 %)
+
+        self.idx = 0                                    # global index
 
     def map_gradient(self, map_I: np.ndarray, kernel: str):
 
@@ -211,12 +213,12 @@ class DFDdetectorClass:
 
         # DEBUG
 
-        cv2.namedWindow('CLUSTER ' + str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
-        cv2.imshow('CLUSTER ' + str(j_cl), nmap_mag_copy)  # show image on window 'win_name' made of numpy.ndarray
-        cv2.resizeWindow('CLUSTER ' + str(j_cl), 1600, 900)  # resizing window on my resolution
-
-        cv2.waitKey(0)  # wait for key pressing
-        cv2.destroyAllWindows()  # close all windows
+        # cv2.namedWindow('CLUSTER ' + str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+        # cv2.imshow('CLUSTER ' + str(j_cl), nmap_mag_copy)  # show image on window 'win_name' made of numpy.ndarray
+        # cv2.resizeWindow('CLUSTER ' + str(j_cl), 1600, 900)  # resizing window on my resolution
+        #
+        # cv2.waitKey(0)  # wait for key pressing
+        # cv2.destroyAllWindows()  # close all windows
 
         # DEBUG END
 
@@ -262,12 +264,12 @@ class DFDdetectorClass:
 
         # DEBUG
 
-        cv2.namedWindow('CLUSTER ' + str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
-        cv2.imshow('CLUSTER ' + str(j_cl), nmap_mag)  # show image on window 'win_name' made of numpy.ndarray
-        cv2.resizeWindow('CLUSTER ' + str(j_cl), 1600, 900)  # resizing window on my resolution
-
-        cv2.waitKey(0)  # wait for key pressing
-        cv2.destroyAllWindows()  # close all windows
+        # cv2.namedWindow('CLUSTER ' + str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+        # cv2.imshow('CLUSTER ' + str(j_cl), nmap_mag)  # show image on window 'win_name' made of numpy.ndarray
+        # cv2.resizeWindow('CLUSTER ' + str(j_cl), 1600, 900)  # resizing window on my resolution
+        #
+        # cv2.waitKey(0)  # wait for key pressing
+        # cv2.destroyAllWindows()  # close all windows
 
         # DEBUG END
 
@@ -275,7 +277,7 @@ class DFDdetectorClass:
 
     def frontier_detection_DFD(self, raw_map_data_numpy_reshape: np.ndarray,
                                raw_costmap_data_numpy_reshape: np.ndarray, robot_position,
-                               map_resolution: float) -> dict:
+                               map_resolution: float, previous_map_reshape) -> dict:
 
 
         self.map_resolution = map_resolution
@@ -287,49 +289,75 @@ class DFDdetectorClass:
 
         distance_from_centroid = []
 
-        #TODO: min costmap value dynamic evaluation
-
+        # control if script got robot position (if no - dummy robot position variables)
         if robot_position:
-            for cluster in cluster_list:
-                distance_from_centroid.append(sqrt((robot_position["x"] - cluster.cluster_centroid["i"]) ** 2
-                                                   + (robot_position["y"] - cluster.cluster_centroid["j"]) ** 2))
-            min_distance = min(distance_from_centroid)
+            #TODO: fetch real robot position
+            robot_position = {"x": int(raw_costmap_data_numpy_reshape.shape[0] / 2),  # dummy robot position variables
+                              "y": int(raw_costmap_data_numpy_reshape.shape[1] / 2)}
         else:
-
-            robot_position = {"x": int(raw_costmap_data_numpy_reshape.shape[0]/2),
+            robot_position = {"x": int(raw_costmap_data_numpy_reshape.shape[0]/2),  # dummy robot position variables
                               "y": int(raw_costmap_data_numpy_reshape.shape[1]/2)}
 
-            for cluster in cluster_list:
-                distance_from_centroid.append(sqrt((robot_position["x"] - cluster.cluster_centroid["i"]) ** 2
-                                                   + (robot_position["y"] - cluster.cluster_centroid["j"]) ** 2))
-            min_distance = min(distance_from_centroid)
-            min_distance = random.choice(distance_from_centroid)    #TODO: make min instead of random choice
+        distance_from_centroid = []
 
-        min_distance_idx = distance_from_centroid.index(min_distance)
+        # computing distances to centroid for all clusters
+        for cluster in cluster_list:
 
-        # DEBUG
-        raw_costmap_data_numpy_reshape_copy = copy.deepcopy(raw_costmap_data_numpy_reshape)
-        raw_costmap_data_numpy_reshape_copy = raw_costmap_data_numpy_reshape_copy.astype(np.uint8)
-        raw_costmap_data_numpy_reshape_copy[cluster_list[min_distance_idx].cluster_centroid["i"]][
-            cluster_list[min_distance_idx].cluster_centroid["j"]] = 175
+            distance_from_centroid.append(sqrt((robot_position["x"] - cluster.cluster_centroid["i"]) ** 2 +
+                                               (robot_position["y"] - cluster.cluster_centroid["j"]) ** 2))
 
-        name = "Goal: "+str(cluster_list[min_distance_idx].cluster_centroid["i"])+" "\
-                   + str(cluster_list[min_distance_idx].cluster_centroid["j"])
+        # sorting dict from min distance_from_centroid to max
 
-        cv2.namedWindow(name, cv2.WINDOW_NORMAL)  # new window, named 'win_name'
-        cv2.imshow(name, raw_costmap_data_numpy_reshape_copy)  # show image on window 'win_name' made of numpy.ndarray
-        cv2.resizeWindow(name, 1600, 900)  # resizing window on my resolution
+        distance_from_centroid_sorted = distance_from_centroid
+        distance_from_centroid_sorted.sort()
 
-        cv2.waitKey(0)  # wait for key pressing
-        cv2.destroyAllWindows()  # close all windows
+        # condition to go to other frontiers (not the closest one) if map doesn't change,
+        # if map changes, go to the closest one
 
-        # END OF DEBUG
+        if np.all(raw_costmap_data_numpy_reshape == previous_map_reshape):
 
-        goal_coords = {"y": cluster_list[min_distance_idx].cluster_centroid["i"],
-                       "x": cluster_list[min_distance_idx].cluster_centroid["j"]}
+            min_distance = distance_from_centroid_sorted[self.idx]
+
+            min_distance_idx = distance_from_centroid.index(min_distance)
+
+            goal_coords = {"y": cluster_list[min_distance_idx].cluster_centroid["i"],
+                           "x": cluster_list[min_distance_idx].cluster_centroid["j"]}
+
+            self.idx += 1
+
+        else:
+
+            min_distance = distance_from_centroid_sorted[0]
+
+            min_distance_idx = distance_from_centroid.index(min_distance)
+
+            goal_coords = {"y": cluster_list[min_distance_idx].cluster_centroid["i"],
+                           "x": cluster_list[min_distance_idx].cluster_centroid["j"]}
+
+            self.idx = 0        # zeroing the counter
+
+
+
+        previous_goal_coords = goal_coords
 
         print("This is what comes out of DFD: \n", goal_coords)
+        # DEBUG
+        # raw_costmap_data_numpy_reshape_copy = copy.deepcopy(raw_costmap_data_numpy_reshape)
+        # raw_costmap_data_numpy_reshape_copy = raw_costmap_data_numpy_reshape_copy.astype(np.uint8)
+        # raw_costmap_data_numpy_reshape_copy[cluster_list[min_distance_idx].cluster_centroid["i"]][
+        #     cluster_list[min_distance_idx].cluster_centroid["j"]] = 175
+        #
+        # name = "Goal: "+str(cluster_list[min_distance_idx].cluster_centroid["i"])+" "\
+        #            + str(cluster_list[min_distance_idx].cluster_centroid["j"])
+        #
+        # cv2.namedWindow(name, cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+        # cv2.imshow(name, raw_costmap_data_numpy_reshape_copy)  # show image on window 'win_name' made of numpy.ndarray
+        # cv2.resizeWindow(name, 1600, 900)  # resizing window on my resolution
+        #
+        # cv2.waitKey(0)  # wait for key pressing
+        # cv2.destroyAllWindows()  # close all windows
 
+        # END OF DEBUG
         return goal_coords
 
 
@@ -601,6 +629,7 @@ class TurtleBotSlamExplorer:
 
                 # setting the 'first goal' flag to zero
                 if self.first_goal:
+                    previous_map_reshape = raw_costmap_data_numpy_reshape
                     self.first_goal = False
 
                 print("This is 3.DEBUG : \n (*) Status: ", self.status_buffer, "\n (*) First goal flag: ",
@@ -616,7 +645,9 @@ class TurtleBotSlamExplorer:
                 goal_coords = frontier_detector.frontier_detection_DFD(raw_map_data_numpy_reshape,
                                                                        raw_costmap_data_numpy_reshape,
                                                                        pose_of_robot,
-                                                                       raw_map.info.resolution)
+                                                                       raw_map.info.resolution,
+                                                                       previous_map_reshape)
+                previous_map_reshape = raw_costmap_data_numpy_reshape
 
                 print('This is goal coords:', goal_coords)
 
