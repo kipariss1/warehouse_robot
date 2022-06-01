@@ -7,7 +7,13 @@ project(a2b_controller)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED)
+find_package(catkin REQUIRED
+	     actionlib
+             geometry_msgs
+             move_base_msgs
+             nav_msgs
+             rospy
+             tf2_ros)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -101,7 +107,7 @@ find_package(catkin REQUIRED)
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES a2b_controller
-#  CATKIN_DEPENDS other_catkin_pkg
+  CATKIN_DEPENDS actionlib geometry_msgs move_base_msgs nav_msgs rospy tf2_ros
 #  DEPENDS system_lib
 )
 
@@ -113,7 +119,7 @@ catkin_package(
 ## Your package locations should be listed before other locations
 include_directories(
 # include
-# ${catkin_INCLUDE_DIRS}
+ ${catkin_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
@@ -156,8 +162,15 @@ include_directories(
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
  catkin_install_python(PROGRAMS
-   src/controller.py
+   src/slam_explorer
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+ )
+
+ catkin_install_python(PROGRAMS
+   src/DFD_class/ClusterClass.py
+   src/DFD_class/DFD_frontier_detection.py
+   src/DFD_class/__init__.py      
+   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}/DFD_class/
  )
 
 ## Mark executables for installation
