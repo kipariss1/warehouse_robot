@@ -83,68 +83,57 @@ class DFDdetectorClass:
 
         self.idx = 0                                    # global index
 
-    def map_gradient(self, map_I: np.ndarray, kernel: str):
-
+    def map_gradient(self, map_I: np.ndarray):
         map_I_copy = copy.deepcopy(map_I)
 
         # initializing gradient magnitude of the map
-        nmap_mag = np.zeros((map_I_copy.shape[0], map_I_copy.shape[1]), dtype="uint8")
+        nmap_mag = np.zeros((map_I_copy.shape[0], map_I_copy.shape[1]), dtype="uint16")
 
-        if kernel == "Sobel":
+        map_I_copy = map_I_copy.astype(np.int16)
+        # assigning uint8 data type to the map, so value "-1" -> 255 and the biggest gradient is between -1:
+        # not known and 100: occupied
 
-            map_I_copy = map_I_copy.astype(np.uint8)
-            # assigning uint8 data type to the map, so value "-1" -> 255 and the biggest gradient is between -1:
-            # not known and 100: occupied
+        # changing values, so i'll get the biggest gradient between free cells: 0 and unknown: -1
+        map_I_copy = np.where(map_I_copy == 100, 50, map_I_copy)  # Known Occupied: 100 -> 50
+        map_I_copy = np.where(map_I_copy == -1, 100, map_I_copy)  # Unknown: -1 -> 100
 
-            # Sobel kernel
-            Gx = np.asarray([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype="uint8")
-            Gy = np.asarray([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype="uint8")
+        # Sobel kernel
+        Gx = np.asarray([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=np.int16)
+        Gy = np.asarray([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=np.int16)
 
-            # Convoluting over whole map with mask, except 1 pixel border
-            for i in range(1, map_I_copy.shape[0] - 2):
-                for j in range(1, map_I_copy.shape[1] - 2):
+        # Convoluting over whole map with mask, except 1 pixel border
+        for i in range(1, map_I_copy.shape[0] - 2):
+            for j in range(1, map_I_copy.shape[1] - 2):
+                submap = map_I_copy[i - 1: i + 2, j - 1: j + 2]  # submap 3x3 pixels
 
-                    submap = map_I_copy[i - 1: i + 2, j - 1: j + 2]      # submap 3x3 pixels
+                ncell_I_x = (submap * Gx).sum()  # element-wise multiplying and getting sum of all elements
+                ncell_I_y = (submap * Gy).sum()  # element-wise multiplying and getting sum of all elements
 
-                    ncell_I_x = (submap * Gx).sum()             # element-wise multiplying and getting sum of all elements
-                    ncell_I_y = (submap * Gy).sum()             # element-wise multiplying and getting sum of all elements
+                if ncell_I_x < 0:
+                    ncell_I_x = 0
+                if ncell_I_y < 0:
+                    ncell_I_y = 0
 
-                    nmap_mag[i][j] = sqrt(ncell_I_x**2 + ncell_I_y**2)  # get magnitude of gradient (we don't need theta)
+                nmap_mag[i][j] = sqrt(
+                    ncell_I_x ** 2 + ncell_I_y ** 2)  # get magnitude of gradient (we don't need theta)
 
-            # Filtering out: leaving only the biggest gradient
-            max_gradient = np.amax(nmap_mag)                                    # get max value of gradient
+        # Filtering out: leaving only the biggest gradient:
+        max_gradient = np.amax(nmap_mag)  # get max value of gradient
 
-            nmap_mag = np.where(nmap_mag < self.percentage_cutoff * max_gradient, 0, nmap_mag)  # filter out all cells,
-                                                                                                # except ones with
-                                                                                                # the highest gradient
-                                                                                                # (top 90%)
+        nmap_mag = np.where(nmap_mag < self.percentage_cutoff * max_gradient, 0, nmap_mag)  # filter out all cells,
+        # except ones with
+        # the highest gradient
+        # (top 90%)
 
-            nmap_mag = np.where(nmap_mag >= self.percentage_cutoff * max_gradient, 255, nmap_mag)   # make top highest
-                                                                                                    # gradient:
-                                                                                                    # 255, due to dtype
-                                                                                                    # - highest
-                                                                                                    # value (and for viz)
+        nmap_mag = np.where(nmap_mag >= self.percentage_cutoff * max_gradient, 255, nmap_mag)  # make top highest
+        # gradient:
+        # 255, due to dtype
+        # - highest
+        # value (and for viz)
 
-            return nmap_mag
+        nmap_mag = nmap_mag.astype(np.uint8)  # assing uint8 type to gradient map, because values are either 0 or 255
 
-        elif kernel == "Gaussian":
-
-            G_g = np.asarray([[1, 2, 1], [2, 4, 2], [1, 2, 1]], dtype="uint8")
-
-            map_I_copy = np.where(map_I_copy == -1, 50, map_I_copy)
-
-            # Convoluting over whole map with mask, except 1 pixel border
-            for i in range(1, map_I_copy.shape[0] - 2):
-                for j in range(1, map_I_copy.shape[1] - 2):
-                    submap = map_I_copy[i - 1: i + 2, j - 1: j + 2]  # submap 3x3 pixels
-
-                    nmap_mag[i][j] = (submap * G_g).sum()  # element-wise multiplying and getting sum of all elements
-
-            return nmap_mag
-
-        else:
-
-            raise ValueError("This type of kernel is not accepted!")
+        return nmap_mag
 
     def check_neighbours(self, nmap_mag, i, j, cluster):
 
@@ -284,7 +273,7 @@ class DFDdetectorClass:
 
         self.min_num_of_elements = int(self.min_size_frontier/self.map_resolution)
 
-        gradient = self.map_gradient(raw_map_data_numpy_reshape, "Sobel")
+        gradient = self.map_gradient(raw_map_data_numpy_reshape)
         cluster_list = self.clustering(gradient)
 
         distance_from_centroid = []
