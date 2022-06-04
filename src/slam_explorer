@@ -282,8 +282,13 @@ class DFDdetectorClass:
         # computing distances to centroid for all clusters
         for cluster in cluster_list:
 
-            # Check if cluster centroid is in the wall (if in the wall -> remove, else -> calculate centroid):
-            if raw_map_data_numpy_reshape[cluster.cluster_centroid["i"]][cluster.cluster_centroid["j"]] != 100:
+            c_i = cluster.cluster_centroid["i"]
+            c_j = cluster.cluster_centroid["j"]
+            centroid_neighbourhood = raw_map_data_numpy_reshape[c_i - 4: c_i + 4, c_j - 4: c_j + 4]
+
+            # Check if cluster centroid or any of its neighbours are in the wall(if in the wall -> remove,
+            #                                                                   else -> calculate centroid):
+            if np.all(centroid_neighbourhood != 100):
                 distance_from_centroid.append(sqrt((robot_position["x"] - cluster.cluster_centroid["i"]) ** 2 +
                                                    (robot_position["y"] - cluster.cluster_centroid["j"]) ** 2))
             else:
@@ -480,31 +485,6 @@ class TurtleBotSlamExplorer:
 
         return goal_coords
 
-    # FUNCTION, WHICH FETCHES STATUS OF THE TURTLEBOT, WHILE IT GOES TO THE GOAL
-    def status_fetch(self, status, result):
-
-        # Meaning of status:
-        # 0  - The goal has yet to be processed by the action server
-        # 1  - The goal is currently being processed by the action server
-        # 2  - The goal received a cancel request after it started executing
-        # 3  - The goal was achieved successfully by the action server (Terminal State)
-        # 4  - The goal was aborted during execution by the action server due
-        #      to some failure (Terminal State)
-        # 5  - The goal was rejected by the action server without being processed,
-        #      because the goal was unattainable or invalid (Terminal State)
-        # 6  - The goal received a cancel request after it started executing
-        #      and has not yet completed execution
-        # 7  - The goal received a cancel request before it started executing,
-        #      but the action server has not yet confirmed that the goal is canceled
-        # 8  - The goal received a cancel request before it started executing
-        #      and was successfully cancelled (Terminal State)
-        # 9  - An action client can determine that a goal is LOST. This should not be
-        #      sent over the wire by an action server
-        print(" (*) This is status: ", status, '\n')
-        print(" (*) This is result: ", result, '\n')
-
-        self.status_buffer = status     # writing status to the class property "int" variable
-
     # get pose of robot in odom frame
     def get_pose_of_robot(self, raw_map_origin_pos, map_resolution):
 
@@ -664,11 +644,9 @@ class TurtleBotSlamExplorer:
 
                     # Send goal with timeout: args: (_, timeout for robot to send the goal, timeout for robot to get
                     #                                                               the goal and start working on it)
-                    self.action_client.send_goal_and_wait(goal, rospy.Duration(5.0), rospy.Duration(0.0))
-                    self.status_buffer = self.action_client.get_state()
+                    self.action_client.send_goal_and_wait(goal, rospy.Duration(20.0), rospy.Duration(0.0))
+                    self.status_buffer = self.action_client.get_state()     # getting status of going to the goal
                     print("(*) This is the result of arriving to the goal: ", self.status_buffer, "\n")
-                    # self.action_client.send_goal(goal, self.status_fetch)
-                    # self.action_client.wait_for_result()
 
 
 def main():
