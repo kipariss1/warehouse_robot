@@ -211,6 +211,7 @@ class DFDdetectorClass:
 
         # DEBUG END
 
+        # while there are frontier cells left
         while frontier_indices.any():
 
             starting_point = {"i": frontier_indices[0][0], "j": frontier_indices[1][0]}     # define starting point
@@ -230,7 +231,7 @@ class DFDdetectorClass:
 
                 # DEBUG
 
-                nmap_mag[new_cluster.cluster_centroid["i"]][new_cluster.cluster_centroid["j"]] = 120
+                # nmap_mag[new_cluster.cluster_centroid["i"]][new_cluster.cluster_centroid["j"]] = 120
 
                 # cv2.namedWindow('CLUSTER '+str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
                 # cv2.imshow('CLUSTER '+str(j_cl), nmap_mag)  # show image on window 'win_name' made of numpy.ndarray
@@ -281,8 +282,12 @@ class DFDdetectorClass:
         # computing distances to centroid for all clusters
         for cluster in cluster_list:
 
-            distance_from_centroid.append(sqrt((robot_position["x"] - cluster.cluster_centroid["i"]) ** 2 +
-                                               (robot_position["y"] - cluster.cluster_centroid["j"]) ** 2))
+            # Check if cluster centroid is in the wall (if in the wall -> remove, else -> calculate centroid):
+            if raw_map_data_numpy_reshape[cluster.cluster_centroid["i"]][cluster.cluster_centroid["j"]] != 100:
+                distance_from_centroid.append(sqrt((robot_position["x"] - cluster.cluster_centroid["i"]) ** 2 +
+                                                   (robot_position["y"] - cluster.cluster_centroid["j"]) ** 2))
+            else:
+                cluster_list.remove(cluster)
 
         # sorting dict from min distance_from_centroid to max
 
@@ -657,6 +662,8 @@ class TurtleBotSlamExplorer:
                     goal.target_pose.pose.position.y = resulting_transformation.transform.translation.y
                     goal.target_pose.pose.orientation.w = 1.0
 
+                    # Send goal with timeout: args: (_, timeout for robot to send the goal, timeout for robot to get
+                    #                                                               the goal and start working on it)
                     self.action_client.send_goal_and_wait(goal, rospy.Duration(5.0), rospy.Duration(0.0))
                     self.status_buffer = self.action_client.get_state()
                     print("(*) This is the result of arriving to the goal: ", self.status_buffer, "\n")
