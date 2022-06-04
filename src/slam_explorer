@@ -562,7 +562,7 @@ class TurtleBotSlamExplorer:
     def explore(self):
 
         # min frontier size is 0.2 [m], 0.8 - percentage cutoff is 90 [%]
-        frontier_detector = DFDdetectorClass(0.2, 0.8)
+        frontier_detector = DFDdetectorClass(0.15, 0.8)
 
         while not rospy.is_shutdown():
 
@@ -598,9 +598,9 @@ class TurtleBotSlamExplorer:
             print("This is 1.DEBUG : \n (*) Status: ",  self.status_buffer, "\n (*) First goal flag: ", self.first_goal, "\n") # DEBUG
 
             # if goal is completed (status: 3) or it's canceled by tf2_ros node(status:4,
-            # couldn't find transform or goal unreachabele)
-            # ,we can lookup new transforms:
-            if self.status_buffer == 3 or self.status_buffer == 4 or self.first_goal:
+            # couldn't find transform or goal unreachabele) or goal canceled by timeout (status:2)
+            # ,we can lookup new transforms and send new goal:
+            if self.status_buffer == 3 or self.status_buffer == 4 or self.status_buffer == 2 or self.first_goal:
 
                 print("This is 2.DEBUG : \n (*) Status: ", self.status_buffer, "\n (*) First goal flag: ",
                       self.first_goal, "\n")  # DEBUG
@@ -657,8 +657,11 @@ class TurtleBotSlamExplorer:
                     goal.target_pose.pose.position.y = resulting_transformation.transform.translation.y
                     goal.target_pose.pose.orientation.w = 1.0
 
-                    self.action_client.send_goal(goal, self.status_fetch)
-                    self.action_client.wait_for_result()
+                    self.action_client.send_goal_and_wait(goal, rospy.Duration(5.0), rospy.Duration(0.0))
+                    self.status_buffer = self.action_client.get_state()
+                    print("(*) This is the result of arriving to the goal: ", self.status_buffer, "\n")
+                    # self.action_client.send_goal(goal, self.status_fetch)
+                    # self.action_client.wait_for_result()
 
 
 def main():
