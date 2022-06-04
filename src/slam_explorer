@@ -289,14 +289,16 @@ class DFDdetectorClass:
             # Check if cluster centroid or any of its neighbours are in the wall(if in the wall -> remove,
             #                                                                   else -> calculate centroid):
             if np.all(centroid_neighbourhood != 100):
+                # print("There is NO wall around!!!")
                 distance_from_centroid.append(sqrt((robot_position["x"] - cluster.cluster_centroid["i"]) ** 2 +
                                                    (robot_position["y"] - cluster.cluster_centroid["j"]) ** 2))
             else:
+                # print("There is wall around!!!")
                 cluster_list.remove(cluster)
 
         # sorting dict from min distance_from_centroid to max
 
-        distance_from_centroid_sorted = distance_from_centroid
+        distance_from_centroid_sorted = copy.deepcopy(distance_from_centroid)
         distance_from_centroid_sorted.sort()
 
         # condition to go to other frontiers (not the closest one) if map doesn't change,
@@ -370,6 +372,9 @@ class TurtleBotSlamExplorer:
 
         self.first_goal: bool = True                                    # flag, which indicates, that robot goes
                                                                         # to it's first goal
+
+        self.min_vel = 0.18                                             # [m/s] minimal speed of TurtleBot
+                                                                        # set up in base_local_planner_params.yamls
 
     # FUNCTION, WHICH MAKES NEW FRAME BY TRANSFORMING FROM OLD AND SENDS IT OUT TO BUFFER
     def add_new_transformed_frame(self, parent_frame_id: str, child_frame_id: str, translation: dict, rotation: dict):
@@ -614,6 +619,12 @@ class TurtleBotSlamExplorer:
                                                                        previous_map_reshape)
                 previous_map_reshape = raw_costmap_data_numpy_reshape
 
+                # calculating the aproximation of travel time to the goal
+                straight_distance = sqrt((goal_coords["x"] - pose_of_robot["x"])**2 +
+                                         (goal_coords["y"] - pose_of_robot["y"])**2)
+
+                approximate_travel_time = straight_distance*raw_map_resolution/self.min_vel    # [s]
+
                 print('This is goal coords:', goal_coords)
 
                 # SETTING THE FRAMES AND RETURNING CALCULATED TRANSFORMATION
@@ -644,7 +655,8 @@ class TurtleBotSlamExplorer:
 
                     # Send goal with timeout: args: (_, timeout for robot to send the goal, timeout for robot to get
                     #                                                               the goal and start working on it)
-                    self.action_client.send_goal_and_wait(goal, rospy.Duration(20.0), rospy.Duration(0.0))
+                    self.action_client.send_goal_and_wait(goal, rospy.Duration(approximate_travel_time),
+                                                                rospy.Duration(0.0))
                     self.status_buffer = self.action_client.get_state()     # getting status of going to the goal
                     print("(*) This is the result of arriving to the goal: ", self.status_buffer, "\n")
 
