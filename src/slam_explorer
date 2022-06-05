@@ -109,10 +109,11 @@ class DFDdetectorClass:
                 ncell_I_x = (submap * Gx).sum()  # element-wise multiplying and getting sum of all elements
                 ncell_I_y = (submap * Gy).sum()  # element-wise multiplying and getting sum of all elements
 
-                if ncell_I_x < 0:
-                    ncell_I_x = 0
-                if ncell_I_y < 0:
-                    ncell_I_y = 0
+                # Restriction of negative gradient
+                # if ncell_I_x < 0:
+                #     ncell_I_x = 0
+                # if ncell_I_y < 0:
+                #     ncell_I_y = 0
 
                 nmap_mag[i][j] = sqrt(
                     ncell_I_x ** 2 + ncell_I_y ** 2)  # get magnitude of gradient (we don't need theta)
@@ -189,7 +190,7 @@ class DFDdetectorClass:
 
         return True
 
-    def clustering(self, nmap_mag):
+    def clustering(self, nmap_mag, robot_position):
 
         cluster_list: list = []                         # creating list, which will store all cluster objects
         nmap_mag_copy = copy.deepcopy(nmap_mag)         # making copy of magnitude map, to be able to delete pixels from it
@@ -231,7 +232,7 @@ class DFDdetectorClass:
 
                 # DEBUG
 
-                # nmap_mag[new_cluster.cluster_centroid["i"]][new_cluster.cluster_centroid["j"]] = 120
+                nmap_mag[new_cluster.cluster_centroid["i"]][new_cluster.cluster_centroid["j"]] = 120
 
                 # cv2.namedWindow('CLUSTER '+str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
                 # cv2.imshow('CLUSTER '+str(j_cl), nmap_mag)  # show image on window 'win_name' made of numpy.ndarray
@@ -254,12 +255,14 @@ class DFDdetectorClass:
 
         # DEBUG
 
-        # cv2.namedWindow('CLUSTER ' + str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
-        # cv2.imshow('CLUSTER ' + str(j_cl), nmap_mag)  # show image on window 'win_name' made of numpy.ndarray
-        # cv2.resizeWindow('CLUSTER ' + str(j_cl), 1600, 900)  # resizing window on my resolution
-        #
-        # cv2.waitKey(0)  # wait for key pressing
-        # cv2.destroyAllWindows()  # close all windows
+        nmap_mag[robot_position["y"]][robot_position["x"]] = 200
+
+        cv2.namedWindow('CLUSTER ' + str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+        cv2.imshow('CLUSTER ' + str(j_cl), nmap_mag)  # show image on window 'win_name' made of numpy.ndarray
+        cv2.resizeWindow('CLUSTER ' + str(j_cl), 1600, 900)  # resizing window on my resolution
+
+        cv2.waitKey(0)  # wait for key pressing
+        cv2.destroyAllWindows()  # close all windows
 
         # DEBUG END
 
@@ -269,13 +272,11 @@ class DFDdetectorClass:
                                raw_costmap_data_numpy_reshape: np.ndarray, robot_position,
                                map_resolution: float, previous_map_reshape) -> dict:
 
-
         self.map_resolution = map_resolution
-
         self.min_num_of_elements = int(self.min_size_frontier/self.map_resolution)
 
         gradient = self.map_gradient(raw_map_data_numpy_reshape)
-        cluster_list = self.clustering(gradient)
+        cluster_list = self.clustering(gradient, robot_position)
 
         distance_from_centroid = []
 
@@ -284,14 +285,14 @@ class DFDdetectorClass:
 
             c_i = cluster.cluster_centroid["i"]
             c_j = cluster.cluster_centroid["j"]
-            centroid_neighbourhood = raw_map_data_numpy_reshape[c_i - 4: c_i + 4, c_j - 4: c_j + 4]
+            centroid_neighbourhood = raw_map_data_numpy_reshape[c_i - 2: c_i + 2, c_j - 2: c_j + 2]
 
             # Check if cluster centroid or any of its neighbours are in the wall(if in the wall -> remove,
             #                                                                   else -> calculate centroid):
             if np.all(centroid_neighbourhood != 100):
                 # print("There is NO wall around!!!")
-                distance_from_centroid.append(sqrt((robot_position["x"] - cluster.cluster_centroid["i"]) ** 2 +
-                                                   (robot_position["y"] - cluster.cluster_centroid["j"]) ** 2))
+                distance_from_centroid.append(sqrt((robot_position["y"] - cluster.cluster_centroid["i"]) ** 2 +
+                                                   (robot_position["x"] - cluster.cluster_centroid["j"]) ** 2))
             else:
                 # print("There is wall around!!!")
                 cluster_list.remove(cluster)
@@ -394,7 +395,7 @@ class TurtleBotSlamExplorer:
                 x=rotation["x"],
                 y=rotation["y"],
                 z=rotation["z"],
-                w=rotation["w"]  # orientation of robot at the goal, usually = 1
+                w=rotation["w"]  # "1" - to save the orientation of new frame
             )
 
         )
@@ -547,7 +548,6 @@ class TurtleBotSlamExplorer:
 
         return x_or_pix
 
-
     # THIS IS MAIN FUNCTION OF CLASS, IT IMPLEMENTS AUTONOMOUS EXPLORATION
     def explore(self):
 
@@ -655,7 +655,7 @@ class TurtleBotSlamExplorer:
 
                     # Send goal with timeout: args: (_, timeout for robot to send the goal, timeout for robot to get
                     #                                                               the goal and start working on it)
-                    self.action_client.send_goal_and_wait(goal, rospy.Duration(approximate_travel_time),
+                    self.action_client.send_goal_and_wait(goal, rospy.Duration(2*approximate_travel_time),
                                                                 rospy.Duration(0.0))
                     self.status_buffer = self.action_client.get_state()     # getting status of going to the goal
                     print("(*) This is the result of arriving to the goal: ", self.status_buffer, "\n")
