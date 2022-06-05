@@ -13,75 +13,69 @@ from random import randint
 import copy
 from math import sqrt
 import cv2
-from visualization_msgs.msg import Marker   # for custom markers in RViz
+from visualization_msgs.msg import Marker  # for custom markers in RViz
 from std_msgs.msg import Header, ColorRGBA  # for custom markers in RViz
+
+
 # from DFD_class.DFD_frontier_detection import DFDdetectorClass       # import custom class
 
 
 class Cluster:
 
     def __init__(self, starting_point: dict, map_id: str, cluster_id: int):
-
-        self.starting_point = starting_point            # starting point from which cluster is being searched further
-        self.list_of_cells = np.asarray([[], []], dtype=int)       # list of cells of cluster
-        self.map_id = map_id                            # id of the map, on which clustering is conducted
-        self.cluster_id = cluster_id                    # enumerator of the cluster
-        self.number_of_elements: int = 0                # number of cells in cluster
-        self.cluster_centroid = {"i": None, "j": None}  # centroid of the cluster
+        self.starting_point = starting_point  # starting point from which cluster is being searched further
+        self.list_of_cells = np.asarray([[], []], dtype=int)  # list of cells of cluster
+        self.map_id = map_id  # id of the map, on which clustering is conducted
+        self.cluster_id = cluster_id  # enumerator of the cluster
+        self.number_of_elements: int = 0  # number of cells in cluster
+        self.cluster_centroid = {"j": None, "i": None}  # centroid of the cluster
 
         # Appending starting point to the cluster
-        self.list_of_cells = np.concatenate((self.list_of_cells, np.asarray([[starting_point["i"]],
-                                                                             [starting_point["j"]]])), axis=1)
+        self.list_of_cells = np.concatenate((self.list_of_cells, np.asarray([[starting_point["j"]],
+                                                                             [starting_point["i"]]])), axis=1)
         self.list_of_cells.astype(int, copy=False)
 
     def calculate_number_of_elements(self):
-
         self.number_of_elements = self.list_of_cells.shape[1]
 
     def calculate_centroid(self):
-
         # calculate the average coordinate:
 
         sum_coord_i = 0
         sum_coord_j = 0
 
         for cell in range(self.number_of_elements):
+            sum_coord_j += self.list_of_cells[0][cell]
+            sum_coord_i += self.list_of_cells[1][cell]
 
-            sum_coord_i += self.list_of_cells[0][cell]
-            sum_coord_j += self.list_of_cells[1][cell]
+        self.cluster_centroid["i"] = int(sum_coord_i / self.number_of_elements)
+        self.cluster_centroid["j"] = int(sum_coord_j / self.number_of_elements)
 
-        self.cluster_centroid["i"] = int(sum_coord_i/self.number_of_elements)
-        self.cluster_centroid["j"] = int(sum_coord_j/self.number_of_elements)
-
-        # print(self.cluster_centroid)        #
-
-    def add_pixel(self, i, j):
-
-        # print("This point was added to cluster: ", "[", str(i), ", ", str(j), "] \n")  # DEBUG
+    def add_pixel(self, j, i):
 
         # Appending pixel to the cluster
-        self.list_of_cells = np.concatenate((self.list_of_cells, np.asarray([[i], [j]])), axis=1)
+        self.list_of_cells = np.concatenate((self.list_of_cells, np.asarray([[j], [i]])), axis=1)
         self.list_of_cells.astype(int, copy=False)
-
-        # print(self.list_of_cells)  # DEBUG
 
 
 class DFDdetectorClass:
 
     def __init__(self, min_size_frontier: float, percentage_cutoff: float):
 
-        self.min_size_frontier = min_size_frontier      # minimum size of the frontier
+        self.min_size_frontier = min_size_frontier  # minimum size of the frontier
 
         if percentage_cutoff > 1 or percentage_cutoff < 0:
             raise ValueError("DFD Error: The value of percentage cutoff should be between 0 and 1!")
 
-        self.map_resolution: float = 0                      # map resolution to calculate min_number_of_elements
-        self.min_num_of_elements: int = 0                   # will be calculated later
+        self.map_resolution: float = 0  # map resolution to calculate min_number_of_elements
+        self.min_num_of_elements: int = 0  # will be calculated later
 
-        self.percentage_cutoff = percentage_cutoff      # specifying how much top percentage
-                                                        # of gradient to left (0.3 = 70 %)
+        self.percentage_cutoff = percentage_cutoff  # specifying how much top percentage
+        # of gradient to left (0.3 = 70 %)
 
-        self.idx = 0                                    # global index
+        self.idx = 0  # global index
+
+        self.safe_boundary_between_goal_and_walls = 2
 
     def map_gradient(self, map_I: np.ndarray):
         map_I_copy = copy.deepcopy(map_I)
@@ -102,9 +96,9 @@ class DFDdetectorClass:
         Gy = np.asarray([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=np.int16)
 
         # Convoluting over whole map with mask, except 1 pixel border
-        for i in range(1, map_I_copy.shape[0] - 2):
-            for j in range(1, map_I_copy.shape[1] - 2):
-                submap = map_I_copy[i - 1: i + 2, j - 1: j + 2]  # submap 3x3 pixels
+        for j in range(1, map_I_copy.shape[0] - 2):
+            for i in range(1, map_I_copy.shape[1] - 2):
+                submap = map_I_copy[j - 1: j + 2, i - 1: i + 2]  # submap 3x3 pixels
 
                 ncell_I_x = (submap * Gx).sum()  # element-wise multiplying and getting sum of all elements
                 ncell_I_y = (submap * Gy).sum()  # element-wise multiplying and getting sum of all elements
@@ -115,7 +109,7 @@ class DFDdetectorClass:
                 # if ncell_I_y < 0:
                 #     ncell_I_y = 0
 
-                nmap_mag[i][j] = sqrt(
+                nmap_mag[j][i] = sqrt(
                     ncell_I_x ** 2 + ncell_I_y ** 2)  # get magnitude of gradient (we don't need theta)
 
         # Filtering out: leaving only the biggest gradient:
@@ -136,70 +130,62 @@ class DFDdetectorClass:
 
         return nmap_mag
 
-    def check_neighbours(self, nmap_mag, i, j, cluster):
+    def check_neighbours(self, nmap_mag, j, i, cluster):
 
         # Checking if any cells in the neighbourhood == 255 (high gradient)
 
-        if nmap_mag[i][j - 1] == 255:
+        if nmap_mag[j][i - 1] == 255:
+            cluster.add_pixel(j, i - 1)
+            nmap_mag[j][i - 1] = 0
+            self.check_neighbours(nmap_mag, j, i - 1, cluster)
 
-            cluster.add_pixel(i, j - 1)
-            nmap_mag[i][j - 1] = 0
-            self.check_neighbours(nmap_mag, i, j - 1, cluster)
+        if nmap_mag[j - 1][i] == 255:
+            cluster.add_pixel(j - 1, i)
+            nmap_mag[j - 1][i] = 0
+            self.check_neighbours(nmap_mag, j - 1, i, cluster)
 
-        if nmap_mag[i - 1][j] == 255:
+        if nmap_mag[j - 1][i - 1] == 255:
+            cluster.add_pixel(j - 1, i - 1)
+            nmap_mag[j - 1][i - 1] = 0
+            self.check_neighbours(nmap_mag, j - 1, i - 1, cluster)
 
-            cluster.add_pixel(i - 1, j)
-            nmap_mag[i - 1][j] = 0
-            self.check_neighbours(nmap_mag, i - 1, j, cluster)
+        if nmap_mag[j][i + 1] == 255:
+            cluster.add_pixel(j, i + 1)
+            nmap_mag[j][i + 1] = 0
+            self.check_neighbours(nmap_mag, j, i + 1, cluster)
 
-        if nmap_mag[i - 1][j - 1] == 255:
+        if nmap_mag[j + 1][i] == 255:
+            cluster.add_pixel(j + 1, i)
+            nmap_mag[j + 1][i] = 0
+            self.check_neighbours(nmap_mag, j + 1, i, cluster)
 
-            cluster.add_pixel(i - 1, j - 1)
-            nmap_mag[i - 1][j - 1] = 0
-            self.check_neighbours(nmap_mag, i - 1, j - 1, cluster)
+        if nmap_mag[j + 1][i + 1] == 255:
+            cluster.add_pixel(j + 1, i + 1)
+            nmap_mag[j + 1][i + 1] = 0
+            self.check_neighbours(nmap_mag, j + 1, i + 1, cluster)
 
-        if nmap_mag[i][j + 1] == 255:
+        if nmap_mag[j - 1][i + 1] == 255:
+            cluster.add_pixel(j - 1, i + 1)
+            nmap_mag[j - 1][i + 1] = 0
+            self.check_neighbours(nmap_mag, j - 1, i + 1, cluster)
 
-            cluster.add_pixel(i, j + 1)
-            nmap_mag[i][j + 1] = 0
-            self.check_neighbours(nmap_mag, i, j + 1, cluster)
-
-        if nmap_mag[i + 1][j] == 255:
-
-            cluster.add_pixel(i + 1, j)
-            nmap_mag[i + 1][j] = 0
-            self.check_neighbours(nmap_mag, i + 1, j, cluster)
-
-        if nmap_mag[i + 1][j + 1] == 255:
-
-            cluster.add_pixel(i + 1,  j + 1)
-            nmap_mag[i + 1][j + 1] = 0
-            self.check_neighbours(nmap_mag, i + 1, j + 1, cluster)
-
-        if nmap_mag[i - 1][j + 1] == 255:
-
-            cluster.add_pixel(i - 1, j + 1)
-            nmap_mag[i - 1][j + 1] = 0
-            self.check_neighbours(nmap_mag, i - 1, j + 1, cluster)
-
-        if nmap_mag[i + 1][j - 1] == 255:
-
-            cluster.add_pixel(i + 1, j - 1)
-            nmap_mag[i + 1][j - 1] = 0
-            self.check_neighbours(nmap_mag, i + 1, j - 1, cluster)
+        if nmap_mag[j + 1][i - 1] == 255:
+            cluster.add_pixel(j + 1, i - 1)
+            nmap_mag[j + 1][i - 1] = 0
+            self.check_neighbours(nmap_mag, j + 1, i - 1, cluster)
 
         return True
 
     def clustering(self, nmap_mag, robot_position):
 
-        cluster_list: list = []                         # creating list, which will store all cluster objects
-        nmap_mag_copy = copy.deepcopy(nmap_mag)         # making copy of magnitude map, to be able to delete pixels from it
-        j_cl = 0                                        # numerator of clusters
+        cluster_list: list = []  # creating list, which will store all cluster objects
+        nmap_mag_copy = copy.deepcopy(nmap_mag)  # making copy of magnitude map, to be able to delete pixels from it
+        j_cl = 0  # numerator of clusters
 
-        frontier_indices = np.where(nmap_mag_copy == 255)   # searching for all cells on magnitude map,
-                                                            # which have high gradient
+        frontier_indices = np.where(nmap_mag_copy == 255)  # searching for all cells on magnitude map,
+        # which have high gradient
 
-        frontier_indices = np.asarray(frontier_indices)     # transforming to np.ndarray
+        frontier_indices = np.asarray(frontier_indices)  # transforming to np.ndarray
 
         # DEBUG
 
@@ -215,24 +201,24 @@ class DFDdetectorClass:
         # while there are frontier cells left
         while frontier_indices.any():
 
-            starting_point = {"i": frontier_indices[0][0], "j": frontier_indices[1][0]}     # define starting point
-                                                                                            # check_neighbours function
+            starting_point = {"j": frontier_indices[0][0], "i": frontier_indices[1][0]}  # define starting point
+            # check_neighbours function
 
-            nmap_mag_copy[frontier_indices[0][0]][frontier_indices[1][0]] = 0               # deleting pixel, that is
-                                                                                            # already in cluster
+            nmap_mag_copy[frontier_indices[0][0]][frontier_indices[1][0]] = 0  # deleting pixel, that is
+            # already in cluster
             # Defining new cluster:
-            # print(str(j_cl) + " cluster !!!")  # DEBUG
+
             new_cluster = Cluster(starting_point, 'nmap_mag', j_cl)
 
-            self.check_neighbours(nmap_mag_copy,  frontier_indices[0][0], frontier_indices[1][0], new_cluster)
+            self.check_neighbours(nmap_mag_copy, frontier_indices[0][0], frontier_indices[1][0], new_cluster)
 
-            new_cluster.calculate_number_of_elements()          # calculate the number of cells in cluster
+            new_cluster.calculate_number_of_elements()  # calculate the number of cells in cluster
             if new_cluster.number_of_elements > self.min_num_of_elements:
-                new_cluster.calculate_centroid()                    # calculate centroid of the cluster
+                new_cluster.calculate_centroid()  # calculate centroid of the cluster
 
                 # DEBUG
 
-                nmap_mag[new_cluster.cluster_centroid["i"]][new_cluster.cluster_centroid["j"]] = 120
+                # nmap_mag[new_cluster.cluster_centroid["j"]][new_cluster.cluster_centroid["i"]] = 120
 
                 # cv2.namedWindow('CLUSTER '+str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
                 # cv2.imshow('CLUSTER '+str(j_cl), nmap_mag)  # show image on window 'win_name' made of numpy.ndarray
@@ -243,56 +229,59 @@ class DFDdetectorClass:
 
                 # DEBUG END
 
-                cluster_list.append(copy.deepcopy(new_cluster))     # appending cluster to the cluster list
+                cluster_list.append(copy.deepcopy(new_cluster))  # appending cluster to the cluster list
 
-                j_cl = j_cl + 1                                   # increase cluster enumerator
+                j_cl = j_cl + 1  # increase cluster enumerator
 
-            frontier_indices = np.where(nmap_mag_copy == 255)   # searching again for all cells on magnitude map,
-                                                                # which have gradient ==255, not 0
-                                                                # after check_neighbours function
+            frontier_indices = np.where(nmap_mag_copy == 255)  # searching again for all cells on magnitude map,
+            # which have gradient ==255, not 0
+            # after check_neighbours function
 
-            frontier_indices = np.asarray(frontier_indices)     # transforming to np.ndarray
+            frontier_indices = np.asarray(frontier_indices)  # transforming to np.ndarray
 
         # DEBUG
 
-        nmap_mag[robot_position["y"]][robot_position["x"]] = 200
-
-        cv2.namedWindow('CLUSTER ' + str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
-        cv2.imshow('CLUSTER ' + str(j_cl), nmap_mag)  # show image on window 'win_name' made of numpy.ndarray
-        cv2.resizeWindow('CLUSTER ' + str(j_cl), 1600, 900)  # resizing window on my resolution
-
-        cv2.waitKey(0)  # wait for key pressing
-        cv2.destroyAllWindows()  # close all windows
+        # nmap_mag[robot_position["j"]][robot_position["i"]] = 200
+        #
+        # cv2.namedWindow('CLUSTER ' + str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+        # cv2.imshow('CLUSTER ' + str(j_cl), nmap_mag)  # show image on window 'win_name' made of numpy.ndarray
+        # cv2.resizeWindow('CLUSTER ' + str(j_cl), 1600, 900)  # resizing window on my resolution
+        #
+        # cv2.waitKey(0)  # wait for key pressing
+        # cv2.destroyAllWindows()  # close all windows
 
         # DEBUG END
 
         return cluster_list
 
     def frontier_detection_DFD(self, raw_map_data_numpy_reshape: np.ndarray,
-                               raw_costmap_data_numpy_reshape: np.ndarray, robot_position,
+                               raw_costmap_data_numpy_reshape: np.ndarray, robot_position_pix,
                                map_resolution: float, previous_map_reshape) -> dict:
 
         self.map_resolution = map_resolution
-        self.min_num_of_elements = int(self.min_size_frontier/self.map_resolution)
+        self.min_num_of_elements = int(self.min_size_frontier / self.map_resolution)
 
         gradient = self.map_gradient(raw_map_data_numpy_reshape)
-        cluster_list = self.clustering(gradient, robot_position)
+        cluster_list = self.clustering(gradient, robot_position_pix)
 
         distance_from_centroid = []
 
         # computing distances to centroid for all clusters
         for cluster in cluster_list:
 
-            c_i = cluster.cluster_centroid["i"]
             c_j = cluster.cluster_centroid["j"]
-            centroid_neighbourhood = raw_map_data_numpy_reshape[c_i - 2: c_i + 2, c_j - 2: c_j + 2]
+            c_i = cluster.cluster_centroid["i"]
+            centroid_neighbourhood = raw_map_data_numpy_reshape[c_j - self.safe_boundary_between_goal_and_walls:
+                                                                c_j + self.safe_boundary_between_goal_and_walls,
+                                                                c_i - self.safe_boundary_between_goal_and_walls:
+                                                                c_i + self.safe_boundary_between_goal_and_walls]
 
             # Check if cluster centroid or any of its neighbours are in the wall(if in the wall -> remove,
             #                                                                   else -> calculate centroid):
             if np.all(centroid_neighbourhood != 100):
                 # print("There is NO wall around!!!")
-                distance_from_centroid.append(sqrt((robot_position["y"] - cluster.cluster_centroid["i"]) ** 2 +
-                                                   (robot_position["x"] - cluster.cluster_centroid["j"]) ** 2))
+                distance_from_centroid.append(sqrt((robot_position_pix["i"] - cluster.cluster_centroid["i"]) ** 2 +
+                                                   (robot_position_pix["j"] - cluster.cluster_centroid["j"]) ** 2))
             else:
                 # print("There is wall around!!!")
                 cluster_list.remove(cluster)
@@ -307,12 +296,12 @@ class DFDdetectorClass:
 
         if np.all(raw_costmap_data_numpy_reshape == previous_map_reshape):
 
-            min_distance = distance_from_centroid_sorted[self.idx]
+            curr_distance = distance_from_centroid_sorted[self.idx]
 
-            min_distance_idx = distance_from_centroid.index(min_distance)
+            curr_distance_idx = distance_from_centroid.index(curr_distance)
 
-            goal_coords = {"y": cluster_list[min_distance_idx].cluster_centroid["i"],
-                           "x": cluster_list[min_distance_idx].cluster_centroid["j"]}
+            goal_coords_pix = {"i": cluster_list[curr_distance_idx].cluster_centroid["i"],
+                               "j": cluster_list[curr_distance_idx].cluster_centroid["j"]}
 
             self.idx += 1
 
@@ -322,12 +311,15 @@ class DFDdetectorClass:
 
             min_distance_idx = distance_from_centroid.index(min_distance)
 
-            goal_coords = {"y": cluster_list[min_distance_idx].cluster_centroid["i"],
-                           "x": cluster_list[min_distance_idx].cluster_centroid["j"]}
+            goal_coords_pix = {"i": cluster_list[min_distance_idx].cluster_centroid["i"],
+                               "j": cluster_list[min_distance_idx].cluster_centroid["j"]}
 
-            self.idx = 0        # zeroing the counter
+            self.idx = 0  # zeroing the counter
 
-        print("This is what comes out of DFD: \n", goal_coords)
+        goal_coords_m = {"x": goal_coords_pix["i"]*map_resolution,
+                         "y": goal_coords_pix["j"]*map_resolution}
+
+        print("This is what comes out of DFD in [m]: \n", goal_coords_m)
 
         # DEBUG
         # raw_costmap_data_numpy_reshape_copy = copy.deepcopy(raw_costmap_data_numpy_reshape)
@@ -347,7 +339,7 @@ class DFDdetectorClass:
 
         # END OF DEBUG
 
-        return goal_coords
+        return goal_coords_m
 
 
 class TurtleBotSlamExplorer:
@@ -367,15 +359,15 @@ class TurtleBotSlamExplorer:
         self.tf2_broadcaster = tf2_ros.TransformBroadcaster()  # broadcasting new frames to the network
         self.tf2_buffer = tf2_ros.Buffer()  # stores all frames
         self.tf2_listener = tf2_ros.TransformListener(self.tf2_buffer)  # listens for new frames and calculating
-                                                                        # translation and rotation between them
+        # translation and rotation between them
 
-        self.status_buffer: int = 0                                     # stores last status of the goal
+        self.status_buffer: int = 0  # stores last status of the goal
 
-        self.first_goal: bool = True                                    # flag, which indicates, that robot goes
-                                                                        # to it's first goal
+        self.first_goal: bool = True  # flag, which indicates, that robot goes
+        # to it's first goal
 
-        self.min_vel = 0.18                                             # [m/s] minimal speed of TurtleBot
-                                                                        # set up in base_local_planner_params.yamls
+        self.min_vel = 0.18  # [m/s] minimal speed of TurtleBot
+        # set up in base_local_planner_params.yamls
 
     # FUNCTION, WHICH MAKES NEW FRAME BY TRANSFORMING FROM OLD AND SENDS IT OUT TO BUFFER
     def add_new_transformed_frame(self, parent_frame_id: str, child_frame_id: str, translation: dict, rotation: dict):
@@ -411,9 +403,8 @@ class TurtleBotSlamExplorer:
     # TRANSFORMATION FROM ORIGIN /map FRAME TO 'GOAL' FRAME, THEN SEND TRANSFORMATION BETWEEN THEM
     # (WHICH IS EQUIVALENT TO MOVING THE MAP FRAME TO (0,0),
     # that's why it's called set_zeroed_frame_and_transform)
-    def set_zeroed_map_frame_and_transform(self, raw_map: tuple, goal_coords: dict, parent_frame: str, child_frame: str):
-
-        raw_map_resolution = raw_map.info.resolution  # resolution of map [m/cell]
+    def set_zeroed_map_frame_and_transform(self, raw_map: tuple, goal_coords: dict, parent_frame: str,
+                                           child_frame: str):
 
         # --------------------------------------------------------------------------------------------------
 
@@ -434,8 +425,8 @@ class TurtleBotSlamExplorer:
         # (*) GETTING THE TRANSFORM FROM lower left corner FRAME ORIGIN TO THE goal coordinates #
 
         self.add_new_transformed_frame("lower left corner", child_frame,
-                                       {"x": goal_coords["x"] * raw_map_resolution,
-                                        "y": goal_coords["y"] * raw_map_resolution, "z": 0},
+                                       {"x": goal_coords["x"],
+                                        "y": goal_coords["y"], "z": 0},
                                        {"x": 0, "y": 0, "z": 0, "w": 1})
 
         #######################################
@@ -464,7 +455,7 @@ class TurtleBotSlamExplorer:
 
             rospy.loginfo('ERROR: Lookup transform between frames!')
             transform_errors = True
-            self.status_buffer = 4              # if tf2_ros can't find transform, then goal is cancelled (status: 4)
+            self.status_buffer = 4  # if tf2_ros can't find transform, then goal is cancelled (status: 4)
             return None, transform_errors
 
         #############################################################################
@@ -484,8 +475,8 @@ class TurtleBotSlamExplorer:
         if not frontier_indices:
             rospy.loginfo('ERROR: Frontier finding!')
 
-        rnd_i = randint(0, np.shape(frontier_indices)[1] - 1)   # random choose from all rows and columns in
-                                                                # raw_map_..._reshape, which contains -1
+        rnd_i = randint(0, np.shape(frontier_indices)[1] - 1)  # random choose from all rows and columns in
+        # raw_map_..._reshape, which contains -1
 
         goal_coords = {"x": frontier_indices[1][rnd_i], "y": frontier_indices[0][rnd_i]}
 
@@ -501,8 +492,8 @@ class TurtleBotSlamExplorer:
                 "y": raw_odom_message.pose.pose.position.y}
 
         # DEBUG
-        print("This is coordinates in odom frame:\n", {"x": raw_odom_message.pose.pose.position.x,
-                                                       "y": raw_odom_message.pose.pose.position.y})
+        print("This is coordinates of robot in odom frame:\n", {"x": raw_odom_message.pose.pose.position.x,
+                                                                "y": raw_odom_message.pose.pose.position.y})
         # END OF DEBUG
 
         # searching for transformation between "odom" frame and "map" frame
@@ -511,8 +502,8 @@ class TurtleBotSlamExplorer:
                                                            "odom",
                                                            rospy.Time())
             # DEBUG
-            print("This is transformat in map frame:\n", {"x": tf_odom2map.transform.translation.x,
-                                                          "y": tf_odom2map.transform.translation.y})
+            print("This is transformation in map frame:\n", {"x": tf_odom2map.transform.translation.x,
+                                                             "y": tf_odom2map.transform.translation.y})
             # END OF DEBUG
 
         except (tf2_ros.LookupException,
@@ -535,18 +526,18 @@ class TurtleBotSlamExplorer:
         x_map2or = raw_map_origin_pos
 
         # finding vector of position of robot [m] in origin frame ( == pos of robot in or frame) by vector summation
-        x_or = {"x": x_od["x"] + x_map2od["x"] - x_map2or["x"],
-                "y": x_od["y"] + x_map2od["y"] - x_map2or["y"]}
+        x_or_m = {"x": x_od["x"] + x_map2od["x"] - x_map2or["x"],
+                  "y": x_od["y"] + x_map2od["y"] - x_map2or["y"]}
 
         # finding vector of position of robot [pix]
-        x_or_pix = {"x": int(x_or["x"]/map_resolution),
-                    "y": int(x_or["y"]/map_resolution)}
+        x_or_pix = {"i": int(x_or_m["x"] / map_resolution),
+                    "j": int(x_or_m["y"] / map_resolution)}
 
         # DEBUG
-        print("This is transformat in !ORIGIN frame:\n", x_or)
+        print("This is coordinates of robot in !ORIGIN (lower_left_corner) frame [m]:\n", x_or_m)
         # END OF DEBUG
 
-        return x_or_pix
+        return x_or_pix, x_or_m
 
     # THIS IS MAIN FUNCTION OF CLASS, IT IMPLEMENTS AUTONOMOUS EXPLORATION
     def explore(self):
@@ -558,8 +549,8 @@ class TurtleBotSlamExplorer:
 
             # FETCHING MAP #
 
-            raw_map = rospy.wait_for_message('/map', OccupancyGrid)     # get map with metadata
-            raw_map_data_numpy = np.asarray(raw_map.data)               # 1d map -> np.ndarray
+            raw_map = rospy.wait_for_message('/map', OccupancyGrid)  # get map with metadata
+            raw_map_data_numpy = np.asarray(raw_map.data)  # 1d map -> np.ndarray
 
             raw_map_data_numpy_reshape = raw_map_data_numpy.reshape((raw_map.info.height,  # reshaping 1d np.ndarray
                                                                      raw_map.info.width))  # to 2d with right size
@@ -585,23 +576,18 @@ class TurtleBotSlamExplorer:
 
             # FINDING THE FRONTIER (A ROBOT'S GOAL)
 
-            print("This is 1.DEBUG : \n (*) Status: ",  self.status_buffer, "\n (*) First goal flag: ", self.first_goal, "\n") # DEBUG
+            print("This is 1.DEBUG : \n (*) Status: ", self.status_buffer, "\n (*) First goal flag: ", self.first_goal,
+                  "\n")  # DEBUG
 
             # if goal is completed (status: 3) or it's canceled by tf2_ros node(status:4,
             # couldn't find transform or goal unreachabele) or goal canceled by timeout (status:2)
             # ,we can lookup new transforms and send new goal:
             if self.status_buffer == 3 or self.status_buffer == 4 or self.status_buffer == 2 or self.first_goal:
 
-                print("This is 2.DEBUG : \n (*) Status: ", self.status_buffer, "\n (*) First goal flag: ",
-                      self.first_goal, "\n")  # DEBUG
-
                 # setting the 'first goal' flag to zero
                 if self.first_goal:
                     previous_map_reshape = raw_costmap_data_numpy_reshape
                     self.first_goal = False
-
-                print("This is 3.DEBUG : \n (*) Status: ", self.status_buffer, "\n (*) First goal flag: ",
-                      self.first_goal, "\n")  # DEBUG
 
                 # (!) FRONTIER DETECTION PART
 
@@ -610,20 +596,34 @@ class TurtleBotSlamExplorer:
 
                 # # * DFD:
 
-                # get pose of robot in pixels
-                pose_of_robot = self.get_pose_of_robot(raw_map_origin_pos, raw_map_resolution)
+                # get pose of robot in [pixels] and [m]
+                pose_of_robot_pix, pose_of_robot_m = self.get_pose_of_robot(raw_map_origin_pos, raw_map_resolution)
+
+                # DEBUG
+
+                # self.add_new_transformed_frame("lower left corner", "fetched robot position",
+                #                                # x coordinates in [m] of cell(0,0) on the /map frame
+                #                                {"x": pose_of_robot_m["x"],
+                #                                 # y coordinates in [m] of cell(0,0) on the /map frame
+                #                                 "y": pose_of_robot_m["y"],
+                #                                 "z": 0},
+                #                                {"x": 0, "y": 0, "z": 0, "w": 1})
+
+                # END OF DEBUG
+
+                # get current coordinates of goal in [m]
                 goal_coords = frontier_detector.frontier_detection_DFD(raw_map_data_numpy_reshape,
                                                                        raw_costmap_data_numpy_reshape,
-                                                                       pose_of_robot,
+                                                                       pose_of_robot_pix,
                                                                        raw_map.info.resolution,
                                                                        previous_map_reshape)
                 previous_map_reshape = raw_costmap_data_numpy_reshape
 
                 # calculating the aproximation of travel time to the goal
-                straight_distance = sqrt((goal_coords["x"] - pose_of_robot["x"])**2 +
-                                         (goal_coords["y"] - pose_of_robot["y"])**2)
+                straight_distance = sqrt((goal_coords["x"] - pose_of_robot_m["x"]) ** 2 +
+                                         (goal_coords["y"] - pose_of_robot_m["y"]) ** 2)
 
-                approximate_travel_time = straight_distance*raw_map_resolution/self.min_vel    # [s]
+                approximate_travel_time = straight_distance / self.min_vel  # [s]
 
                 print('This is goal coords:', goal_coords)
 
@@ -634,15 +634,9 @@ class TurtleBotSlamExplorer:
                                                                                                      "map",
                                                                                                      "goal coordinates")
 
-                print("This is 4.DEBUG : \n (*) Status: ", self.status_buffer, "\n (*) First goal flag: ",
-                      self.first_goal, "\n")  # DEBUG
-
                 # setting status to currently being proceded
                 if self.status_buffer == 3 or self.status_buffer == 4 and not transform_errors:
                     self.status_buffer = 1
-
-                print("This is 5.DEBUG : \n (*) Status: ", self.status_buffer, "\n (*) First goal flag: ",
-                      self.first_goal, "\n")  # DEBUG
 
                 # SENDING THE GOAL TO THE TURTLEBOT #
                 if resulting_transformation:
@@ -653,11 +647,11 @@ class TurtleBotSlamExplorer:
                     goal.target_pose.pose.position.y = resulting_transformation.transform.translation.y
                     goal.target_pose.pose.orientation.w = 1.0
 
-                    # Send goal with timeout: args: (_, timeout for robot to send the goal, timeout for robot to get
-                    #                                                               the goal and start working on it)
-                    self.action_client.send_goal_and_wait(goal, rospy.Duration(2*approximate_travel_time),
-                                                                rospy.Duration(0.0))
-                    self.status_buffer = self.action_client.get_state()     # getting status of going to the goal
+                    # Send goal with timeout: args: (_, timeout for robot to move to the goal, timeout for robot to
+                    # accept the goal)
+                    self.action_client.send_goal_and_wait(goal, rospy.Duration(2 * approximate_travel_time),
+                                                          rospy.Duration(0.0))
+                    self.status_buffer = self.action_client.get_state()  # getting status of going to the goal
                     print("(*) This is the result of arriving to the goal: ", self.status_buffer, "\n")
 
 
