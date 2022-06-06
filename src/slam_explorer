@@ -22,7 +22,7 @@ from std_msgs.msg import Header, ColorRGBA  # for custom markers in RViz
 
 class Cluster:
 
-    def __init__(self, starting_point: dict, map_id: str, cluster_id: int):
+    def __init__(self, starting_point: dict, map_id: str, cluster_id: int, has_walls_inside_flag: bool):
         self.starting_point = starting_point  # starting point from which cluster is being searched further
         self.list_of_cells = np.asarray([[], []], dtype=int)  # list of cells of cluster
         self.map_id = map_id  # id of the map, on which clustering is conducted
@@ -36,7 +36,7 @@ class Cluster:
         self.list_of_cells.astype(int, copy=False)
 
         # Flag if cluster has walls inside itself
-        self.has_walls_inside_flag = False
+        self.has_walls_inside_flag = has_walls_inside_flag
 
     def calculate_number_of_elements(self):
         self.number_of_elements = self.list_of_cells.shape[1]
@@ -106,12 +106,6 @@ class DFDdetectorClass:
                 ncell_I_x = (submap * Gx).sum()  # element-wise multiplying and getting sum of all elements
                 ncell_I_y = (submap * Gy).sum()  # element-wise multiplying and getting sum of all elements
 
-                # Restriction of negative gradient
-                # if ncell_I_x < 0:
-                #     ncell_I_x = 0
-                # if ncell_I_y < 0:
-                #     ncell_I_y = 0
-
                 nmap_mag[j][i] = sqrt(
                     ncell_I_x ** 2 + ncell_I_y ** 2)  # get magnitude of gradient (we don't need theta)
 
@@ -133,49 +127,73 @@ class DFDdetectorClass:
 
         return nmap_mag
 
-    def check_neighbours(self, nmap_mag, j, i, cluster):
+    def check_neighbours(self, nmap_mag, j, i, cluster, raw_map_data_numpy_reshape):
 
         # Checking if any cells in the neighbourhood == 255 (high gradient)
 
         if nmap_mag[j][i - 1] == 255:
             cluster.add_pixel(j, i - 1)
+            # if cell == wall -> cluster has walls inside itself
+            if raw_map_data_numpy_reshape[j][i - 1] == 100:
+                cluster.has_walls_inside_flag = True
             nmap_mag[j][i - 1] = 0
-            self.check_neighbours(nmap_mag, j, i - 1, cluster)
+            self.check_neighbours(nmap_mag, j, i - 1, cluster, raw_map_data_numpy_reshape)
 
         if nmap_mag[j - 1][i] == 255:
             cluster.add_pixel(j - 1, i)
+            # if cell == wall -> cluster has walls inside itself
+            if raw_map_data_numpy_reshape[j - 1][i] == 100:
+                cluster.has_walls_inside_flag = True
             nmap_mag[j - 1][i] = 0
-            self.check_neighbours(nmap_mag, j - 1, i, cluster)
+            self.check_neighbours(nmap_mag, j - 1, i, cluster, raw_map_data_numpy_reshape)
 
         if nmap_mag[j - 1][i - 1] == 255:
             cluster.add_pixel(j - 1, i - 1)
+            # if cell == wall -> cluster has walls inside itself
+            if raw_map_data_numpy_reshape[j - 1][i - 1] == 100:
+                cluster.has_walls_inside_flag = True
             nmap_mag[j - 1][i - 1] = 0
-            self.check_neighbours(nmap_mag, j - 1, i - 1, cluster)
+            self.check_neighbours(nmap_mag, j - 1, i - 1, cluster, raw_map_data_numpy_reshape)
 
         if nmap_mag[j][i + 1] == 255:
             cluster.add_pixel(j, i + 1)
+            # if cell == wall -> cluster has walls inside itself
+            if raw_map_data_numpy_reshape[j][i + 1] == 100:
+                cluster.has_walls_inside_flag = True
             nmap_mag[j][i + 1] = 0
-            self.check_neighbours(nmap_mag, j, i + 1, cluster)
+            self.check_neighbours(nmap_mag, j, i + 1, cluster, raw_map_data_numpy_reshape)
 
         if nmap_mag[j + 1][i] == 255:
             cluster.add_pixel(j + 1, i)
+            # if cell == wall -> cluster has walls inside itself
+            if raw_map_data_numpy_reshape[j + 1][i] == 100:
+                cluster.has_walls_inside_flag = True
             nmap_mag[j + 1][i] = 0
-            self.check_neighbours(nmap_mag, j + 1, i, cluster)
+            self.check_neighbours(nmap_mag, j + 1, i, cluster, raw_map_data_numpy_reshape)
 
         if nmap_mag[j + 1][i + 1] == 255:
             cluster.add_pixel(j + 1, i + 1)
+            # if cell == wall -> cluster has walls inside itself
+            if raw_map_data_numpy_reshape[j + 1][i + 1] == 100:
+                cluster.has_walls_inside_flag = True
             nmap_mag[j + 1][i + 1] = 0
-            self.check_neighbours(nmap_mag, j + 1, i + 1, cluster)
+            self.check_neighbours(nmap_mag, j + 1, i + 1, cluster, raw_map_data_numpy_reshape)
 
         if nmap_mag[j - 1][i + 1] == 255:
             cluster.add_pixel(j - 1, i + 1)
+            # if cell == wall -> cluster has walls inside itself
+            if raw_map_data_numpy_reshape[j - 1][i + 1] == 100:
+                cluster.has_walls_inside_flag = True
             nmap_mag[j - 1][i + 1] = 0
-            self.check_neighbours(nmap_mag, j - 1, i + 1, cluster)
+            self.check_neighbours(nmap_mag, j - 1, i + 1, cluster, raw_map_data_numpy_reshape)
 
         if nmap_mag[j + 1][i - 1] == 255:
             cluster.add_pixel(j + 1, i - 1)
+            # if cell == wall -> cluster has walls inside itself
+            if raw_map_data_numpy_reshape[j + 1][i - 1] == 100:
+                cluster.has_walls_inside_flag = True
             nmap_mag[j + 1][i - 1] = 0
-            self.check_neighbours(nmap_mag, j + 1, i - 1, cluster)
+            self.check_neighbours(nmap_mag, j + 1, i - 1, cluster, raw_map_data_numpy_reshape)
 
         return True
 
@@ -211,12 +229,17 @@ class DFDdetectorClass:
             # already in cluster
             # Defining new cluster:
 
-            new_cluster = Cluster(starting_point, 'nmap_mag', j_cl)
+            # if starting point is inside the wall -> cluster wall_inside flag:=True
+            if raw_map_data_numpy_reshape[starting_point["j"]][starting_point["i"]] == 100:
+                new_cluster = Cluster(starting_point, 'nmap_mag', j_cl, True)   # init new cluster
+            else:
+                new_cluster = Cluster(starting_point, 'nmap_mag', j_cl, False)  # init new cluster
 
-            self.check_neighbours(nmap_mag_copy, frontier_indices[0][0], frontier_indices[1][0], new_cluster)
+            self.check_neighbours(nmap_mag_copy, frontier_indices[0][0], frontier_indices[1][0], new_cluster,
+                                  raw_map_data_numpy_reshape)
 
             new_cluster.calculate_number_of_elements()  # calculate the number of cells in cluster
-            if new_cluster.number_of_elements > self.min_num_of_elements:
+            if new_cluster.number_of_elements > self.min_num_of_elements and not new_cluster.has_walls_inside_flag:
                 new_cluster.calculate_centroid()  # calculate centroid of the cluster
 
                 # DEBUG
@@ -585,7 +608,7 @@ class TurtleBotSlamExplorer:
     def explore(self):
 
         # min frontier size is 0.2 [m], 0.8 - percentage cutoff is 90 [%]
-        frontier_detector = DFDdetectorClass(0.0026, 0.8)
+        frontier_detector = DFDdetectorClass(0.0026, 0.7)
 
         while not rospy.is_shutdown():
 
