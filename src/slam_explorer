@@ -73,9 +73,9 @@ class DFDdetectorClass:
         self.percentage_cutoff = percentage_cutoff  # specifying how much top percentage
         # of gradient to left (0.3 = 70 %)
 
-        self.idx = 0  # global index
+        self.idx = 1  # global index
 
-        self.safe_boundary_between_goal_and_walls = 2
+        self.safe_boundary_between_goal_and_walls = 1
 
     def map_gradient(self, map_I: np.ndarray):
         map_I_copy = copy.deepcopy(map_I)
@@ -218,7 +218,7 @@ class DFDdetectorClass:
 
                 # DEBUG
 
-                # nmap_mag[new_cluster.cluster_centroid["j"]][new_cluster.cluster_centroid["i"]] = 120
+                nmap_mag[new_cluster.cluster_centroid["j"]][new_cluster.cluster_centroid["i"]] = 120
 
                 # cv2.namedWindow('CLUSTER '+str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
                 # cv2.imshow('CLUSTER '+str(j_cl), nmap_mag)  # show image on window 'win_name' made of numpy.ndarray
@@ -241,14 +241,14 @@ class DFDdetectorClass:
 
         # DEBUG
 
-        # nmap_mag[robot_position["j"]][robot_position["i"]] = 200
-        #
-        # cv2.namedWindow('CLUSTER ' + str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
-        # cv2.imshow('CLUSTER ' + str(j_cl), nmap_mag)  # show image on window 'win_name' made of numpy.ndarray
-        # cv2.resizeWindow('CLUSTER ' + str(j_cl), 1600, 900)  # resizing window on my resolution
-        #
-        # cv2.waitKey(0)  # wait for key pressing
-        # cv2.destroyAllWindows()  # close all windows
+        nmap_mag[robot_position["j"]][robot_position["i"]] = 200
+
+        cv2.namedWindow('CLUSTER ' + str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+        cv2.imshow('CLUSTER ' + str(j_cl), nmap_mag)  # show image on window 'win_name' made of numpy.ndarray
+        cv2.resizeWindow('CLUSTER ' + str(j_cl), 1600, 900)  # resizing window on my resolution
+
+        cv2.waitKey(0)  # wait for key pressing
+        cv2.destroyAllWindows()  # close all windows
 
         # DEBUG END
 
@@ -266,6 +266,13 @@ class DFDdetectorClass:
 
         distance_from_centroid = []
 
+        # DEBUG
+
+        print("| CLUSTER ID | CENTROID  | DIST2CENT | ROBOT POS |  \n")
+        print("__________________________________________________  \n")
+
+        # END OF DEBUG
+
         # computing distances to centroid for all clusters
         for cluster in cluster_list:
 
@@ -282,6 +289,15 @@ class DFDdetectorClass:
                 # print("There is NO wall around!!!")
                 distance_from_centroid.append(sqrt((robot_position_pix["i"] - cluster.cluster_centroid["i"]) ** 2 +
                                                    (robot_position_pix["j"] - cluster.cluster_centroid["j"]) ** 2))
+
+                # DEBUG
+
+                print("|   ", cluster.cluster_id, "      |   [", [c_j, c_i], "]    |   ", distance_from_centroid[-1],
+                      "    |   ", [robot_position_pix["j"], robot_position_pix["i"]], "      |  \n")
+                print("______________________________________  \n")
+
+                # END OF DEBUG
+
             else:
                 # print("There is wall around!!!")
                 cluster_list.remove(cluster)
@@ -294,7 +310,7 @@ class DFDdetectorClass:
         # condition to go to other frontiers (not the closest one) if map doesn't change,
         # if map changes, go to the closest one
 
-        if np.all(raw_costmap_data_numpy_reshape == previous_map_reshape):
+        if np.all(raw_map_data_numpy_reshape == previous_map_reshape):
 
             curr_distance = distance_from_centroid_sorted[self.idx]
 
@@ -305,6 +321,18 @@ class DFDdetectorClass:
 
             self.idx += 1
 
+            # DEBUG
+            print("______________________________________  \n")
+            print("      THIS IS NOT CLOSEST FRONTIER      \n")
+            print("|   ", cluster_list[curr_distance_idx].cluster_id, "      |   [",
+                  [cluster_list[curr_distance_idx].cluster_centroid["j"],
+                   cluster_list[curr_distance_idx].cluster_centroid["i"]], "]    |   ",
+                  distance_from_centroid[curr_distance_idx], "    |   ",
+                  [robot_position_pix["j"], robot_position_pix["i"]], "      |  \n")
+            print("______________________________________  \n")
+
+            # END OF DEBUG
+
         else:
 
             min_distance = distance_from_centroid_sorted[0]
@@ -314,7 +342,18 @@ class DFDdetectorClass:
             goal_coords_pix = {"i": cluster_list[min_distance_idx].cluster_centroid["i"],
                                "j": cluster_list[min_distance_idx].cluster_centroid["j"]}
 
-            self.idx = 0  # zeroing the counter
+            self.idx = 1  # zeroing the counter
+            # DEBUG
+            print("______________________________________  \n")
+            print("      THIS IS CLOSEST FRONTIER          \n")
+            print("|   ", cluster_list[min_distance_idx].cluster_id, "      |   [",
+                  [cluster_list[min_distance_idx].cluster_centroid["j"],
+                   cluster_list[min_distance_idx].cluster_centroid["i"]], "]    |   ",
+                  distance_from_centroid[min_distance_idx], "    |   ",
+                  [robot_position_pix["j"], robot_position_pix["i"]], "      |  \n")
+            print("______________________________________  \n")
+
+            # END OF DEBUG
 
         goal_coords_m = {"x": goal_coords_pix["i"]*map_resolution,
                          "y": goal_coords_pix["j"]*map_resolution}
@@ -543,7 +582,7 @@ class TurtleBotSlamExplorer:
     def explore(self):
 
         # min frontier size is 0.2 [m], 0.8 - percentage cutoff is 90 [%]
-        frontier_detector = DFDdetectorClass(0.15, 0.8)
+        frontier_detector = DFDdetectorClass(0.01, 0.7)
 
         while not rospy.is_shutdown():
 
@@ -601,13 +640,13 @@ class TurtleBotSlamExplorer:
 
                 # DEBUG
 
-                # self.add_new_transformed_frame("lower left corner", "fetched robot position",
-                #                                # x coordinates in [m] of cell(0,0) on the /map frame
-                #                                {"x": pose_of_robot_m["x"],
-                #                                 # y coordinates in [m] of cell(0,0) on the /map frame
-                #                                 "y": pose_of_robot_m["y"],
-                #                                 "z": 0},
-                #                                {"x": 0, "y": 0, "z": 0, "w": 1})
+                self.add_new_transformed_frame("lower left corner", "fetched robot position",
+                                               # x coordinates in [m] of cell(0,0) on the /map frame
+                                               {"x": pose_of_robot_m["x"],
+                                                # y coordinates in [m] of cell(0,0) on the /map frame
+                                                "y": pose_of_robot_m["y"],
+                                                "z": 0},
+                                               {"x": 0, "y": 0, "z": 0, "w": 1})
 
                 # END OF DEBUG
 
