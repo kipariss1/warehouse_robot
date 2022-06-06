@@ -75,7 +75,7 @@ class DFDdetectorClass:
 
         self.idx = 1  # global index
 
-        self.safe_boundary_between_goal_and_walls = 1
+        self.safe_boundary_between_goal_and_walls = 3   # [cells]
 
     def map_gradient(self, map_I: np.ndarray):
         map_I_copy = copy.deepcopy(map_I)
@@ -218,7 +218,7 @@ class DFDdetectorClass:
 
                 # DEBUG
 
-                nmap_mag[new_cluster.cluster_centroid["j"]][new_cluster.cluster_centroid["i"]] = 120
+                # nmap_mag[new_cluster.cluster_centroid["j"]][new_cluster.cluster_centroid["i"]] = 120
 
                 # cv2.namedWindow('CLUSTER '+str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
                 # cv2.imshow('CLUSTER '+str(j_cl), nmap_mag)  # show image on window 'win_name' made of numpy.ndarray
@@ -241,14 +241,14 @@ class DFDdetectorClass:
 
         # DEBUG
 
-        nmap_mag[robot_position["j"]][robot_position["i"]] = 200
-
-        cv2.namedWindow('CLUSTER ' + str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
-        cv2.imshow('CLUSTER ' + str(j_cl), nmap_mag)  # show image on window 'win_name' made of numpy.ndarray
-        cv2.resizeWindow('CLUSTER ' + str(j_cl), 1600, 900)  # resizing window on my resolution
-
-        cv2.waitKey(0)  # wait for key pressing
-        cv2.destroyAllWindows()  # close all windows
+        # nmap_mag[robot_position["j"]][robot_position["i"]] = 200
+        #
+        # cv2.namedWindow('CLUSTER ' + str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+        # cv2.imshow('CLUSTER ' + str(j_cl), nmap_mag)  # show image on window 'win_name' made of numpy.ndarray
+        # cv2.resizeWindow('CLUSTER ' + str(j_cl), 1600, 900)  # resizing window on my resolution
+        #
+        # cv2.waitKey(0)  # wait for key pressing
+        # cv2.destroyAllWindows()  # close all windows
 
         # DEBUG END
 
@@ -582,7 +582,7 @@ class TurtleBotSlamExplorer:
     def explore(self):
 
         # min frontier size is 0.2 [m], 0.8 - percentage cutoff is 90 [%]
-        frontier_detector = DFDdetectorClass(0.01, 0.7)
+        frontier_detector = DFDdetectorClass(0.0026, 0.8)
 
         while not rospy.is_shutdown():
 
@@ -625,7 +625,7 @@ class TurtleBotSlamExplorer:
 
                 # setting the 'first goal' flag to zero
                 if self.first_goal:
-                    previous_map_reshape = raw_costmap_data_numpy_reshape
+                    previous_map_reshape = raw_map_data_numpy_reshape
                     self.first_goal = False
 
                 # (!) FRONTIER DETECTION PART
@@ -640,13 +640,13 @@ class TurtleBotSlamExplorer:
 
                 # DEBUG
 
-                self.add_new_transformed_frame("lower left corner", "fetched robot position",
-                                               # x coordinates in [m] of cell(0,0) on the /map frame
-                                               {"x": pose_of_robot_m["x"],
-                                                # y coordinates in [m] of cell(0,0) on the /map frame
-                                                "y": pose_of_robot_m["y"],
-                                                "z": 0},
-                                               {"x": 0, "y": 0, "z": 0, "w": 1})
+                # self.add_new_transformed_frame("lower left corner", "fetched robot position",
+                #                                # x coordinates in [m] of cell(0,0) on the /map frame
+                #                                {"x": pose_of_robot_m["x"],
+                #                                 # y coordinates in [m] of cell(0,0) on the /map frame
+                #                                 "y": pose_of_robot_m["y"],
+                #                                 "z": 0},
+                #                                {"x": 0, "y": 0, "z": 0, "w": 1})
 
                 # END OF DEBUG
 
@@ -673,9 +673,10 @@ class TurtleBotSlamExplorer:
                                                                                                      "map",
                                                                                                      "goal coordinates")
 
-                # setting status to currently being proceded
-                if self.status_buffer == 3 or self.status_buffer == 4 and not transform_errors:
-                    self.status_buffer = 1
+                # setting status to currently being proceded, rtig for statuses
+                # if self.status_buffer == 3 or self.status_buffer == 4 or self.status_buffer == 2 \
+                #         and not transform_errors:
+                #     self.status_buffer = 1
 
                 # SENDING THE GOAL TO THE TURTLEBOT #
                 if resulting_transformation:
@@ -690,6 +691,12 @@ class TurtleBotSlamExplorer:
                     # accept the goal)
                     self.action_client.send_goal_and_wait(goal, rospy.Duration(2 * approximate_travel_time),
                                                           rospy.Duration(0.0))
+
+                    # Blocks until goal finishes
+                    wait = self.action_client.wait_for_result()
+                    if not wait:
+                        print("Action server is not available! ")
+
                     self.status_buffer = self.action_client.get_state()  # getting status of going to the goal
                     print("(*) This is the result of arriving to the goal: ", self.status_buffer, "\n")
 
