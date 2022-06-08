@@ -427,7 +427,7 @@ class TurtleBotSlamExplorer:
         self.tf2_listener = tf2_ros.TransformListener(self.tf2_buffer)  # listens for new frames and calculating
         # translation and rotation between them
 
-        self.status_buffer: int = 0  # stores last status of the goal
+        self.status_buffer = np.zeros((10,), dtype=int)  # stores last 10 statuses of the goal
 
         self.first_goal: bool = True  # flag, which indicates, that robot goes
         # to it's first goal
@@ -521,7 +521,7 @@ class TurtleBotSlamExplorer:
 
             rospy.loginfo('ERROR: Lookup transform between frames!')
             transform_errors = True
-            self.status_buffer = 4  # if tf2_ros can't find transform, then goal is cancelled (status: 4)
+
             return None, transform_errors
 
         #############################################################################
@@ -642,9 +642,6 @@ class TurtleBotSlamExplorer:
 
             # FINDING THE FRONTIER (A ROBOT'S GOAL)
 
-            print("This is 1.DEBUG : \n (*) Status: ", self.status_buffer, "\n (*) First goal flag: ", self.first_goal,
-                  "\n")  # DEBUG
-
             # setting the 'first goal' flag to zero
             if self.first_goal:
                 previous_map_reshape = raw_map_data_numpy_reshape
@@ -695,6 +692,11 @@ class TurtleBotSlamExplorer:
                                                                                                  "map",
                                                                                                  "goal coordinates")
 
+            self.status_buffer = np.append(self.status_buffer, self.action_client.get_state())  # append last status
+                                                                                                # to the buffer
+            self.status_buffer = np.delete(self.status_buffer, 0)  # delete the oldest
+
+            print("(*) This is last 10 goal statuses: ", self.status_buffer, "\n")
 
             # SENDING THE GOAL TO THE TURTLEBOT #
             if resulting_transformation:
@@ -709,16 +711,6 @@ class TurtleBotSlamExplorer:
                 # accept the goal)
                 self.action_client.send_goal_and_wait(goal, rospy.Duration(2 * approximate_travel_time),
                                                       rospy.Duration(0.0))
-
-                self.status_buffer = self.action_client.get_state()  # getting status of going to the goal
-
-                # If status of the goal reaching is Terminal (2 - cancel request, timeout; 3 - successfully achieved;
-                # 4 - failure, wrong goal; 8 - goal canceled before started executing) -> sleep for X [s]
-                if self.status_buffer == 2 or self.status_buffer == 3 or \
-                        self.status_buffer == 4 or self.status_buffer == 8:
-                    rospy.sleep(rospy.Duration(2))   # sleep
-
-                print("(*) This is the result of arriving to the goal: ", self.status_buffer, "\n")
 
 
 def main():
