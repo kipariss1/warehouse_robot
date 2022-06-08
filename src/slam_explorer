@@ -415,7 +415,7 @@ class TurtleBotSlamExplorer:
 
     def __init__(self):
 
-        self.rate = rospy.Rate(10)  # rate of message sending is 10 Hz
+        self.rate = rospy.Rate(5)  # rate of message sending is 10 Hz
 
         # Actionlib client definition #
         # move base is name of topic of the package, publishing the message on that topic allows you to move robot
@@ -643,17 +643,12 @@ class TurtleBotSlamExplorer:
 
             # costmap explanation: -1 - unknown, 0 -> 100 - probability of occupancy
 
-            # FINDING THE FRONTIER (A ROBOT'S GOAL)
-
             # setting the 'first goal' flag to zero
             if self.first_goal:
                 previous_map_reshape = raw_map_data_numpy_reshape
                 self.first_goal = False
 
             # (!) FRONTIER DETECTION PART
-
-            # * NAIVE:
-            # goal_coords = self.frontier_detection(raw_map_data_numpy_reshape, raw_costmap_data_numpy_reshape)
 
             # # * DFD:
 
@@ -685,6 +680,8 @@ class TurtleBotSlamExplorer:
                                      (goal_coords["y"] - pose_of_robot_m["y"]) ** 2)
 
             approximate_travel_time = straight_distance / self.min_vel  # [s]
+            if approximate_travel_time < 5:
+                approximate_travel_time = 5
 
             print('This is goal coords:', goal_coords)
 
@@ -694,6 +691,7 @@ class TurtleBotSlamExplorer:
                                                                                                  goal_coords,
                                                                                                  "map",
                                                                                                  "goal coordinates")
+            # REFRESHING THE GOAL STATUS BUFFER
 
             self.status_buffer = np.append(self.status_buffer, self.action_client.get_state())  # append last status
                                                                                                 # to the buffer
@@ -701,7 +699,7 @@ class TurtleBotSlamExplorer:
 
             print("(*) This is last 10 goal statuses: ", self.status_buffer, "\n")
 
-            # SENDING THE GOAL TO THE TURTLEBOT #
+            # SENDING THE GOAL TO THE TURTLEBOT
             if resulting_transformation:
                 goal = MoveBaseGoal()
                 goal.target_pose.header.frame_id = "map"
