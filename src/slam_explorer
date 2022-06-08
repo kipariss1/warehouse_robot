@@ -19,7 +19,7 @@ from std_msgs.msg import Header, ColorRGBA  # for custom markers in RViz
 
 # from DFD_class.DFD_frontier_detection import DFDdetectorClass       # import custom class
 
-
+# datatype for storing the cluster
 class Cluster:
 
     def __init__(self, starting_point: dict, map_id: str, cluster_id: int, has_walls_inside_flag: bool):
@@ -61,6 +61,7 @@ class Cluster:
         self.list_of_cells.astype(int, copy=False)
 
 
+# Yamauchi's frontier detection method implemented in the class
 class DFDdetectorClass:
 
     def __init__(self, min_size_frontier: float, percentage_cutoff: float):
@@ -78,7 +79,7 @@ class DFDdetectorClass:
 
         self.idx = 1  # global index
 
-        self.safe_boundary_between_goal_and_walls = 3   # [cells]
+        self.safe_boundary_between_goal_and_walls = 1   # [cells]
 
     def map_gradient(self, map_I: np.ndarray):
         map_I_copy = copy.deepcopy(map_I)
@@ -244,7 +245,7 @@ class DFDdetectorClass:
 
                 # DEBUG
 
-                # nmap_mag[new_cluster.cluster_centroid["j"]][new_cluster.cluster_centroid["i"]] = 120
+                nmap_mag[new_cluster.cluster_centroid["j"]][new_cluster.cluster_centroid["i"]] = 120
 
                 # cv2.namedWindow('CLUSTER '+str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
                 # cv2.imshow('CLUSTER '+str(j_cl), nmap_mag)  # show image on window 'win_name' made of numpy.ndarray
@@ -607,8 +608,8 @@ class TurtleBotSlamExplorer:
     # THIS IS MAIN FUNCTION OF CLASS, IT IMPLEMENTS AUTONOMOUS EXPLORATION
     def explore(self):
 
-        # min frontier size is 0.2 [m], 0.8 - percentage cutoff is 90 [%]
-        frontier_detector = DFDdetectorClass(0.0026, 0.7)
+        # min frontier size is 0.2 [m], 0.9 - lower percentage cutoff is 90 [%]
+        frontier_detector = DFDdetectorClass(0.0026, 0.9)
 
         while not rospy.is_shutdown():
 
@@ -709,12 +710,14 @@ class TurtleBotSlamExplorer:
                 self.action_client.send_goal_and_wait(goal, rospy.Duration(2 * approximate_travel_time),
                                                       rospy.Duration(0.0))
 
-                # Blocks until goal finishes
-                # wait = self.action_client.wait_for_result()
-                # if not wait:
-                #     print("Action server is not available! ")
-
                 self.status_buffer = self.action_client.get_state()  # getting status of going to the goal
+
+                # If status of the goal reaching is Terminal (2 - cancel request, timeout; 3 - successfully achieved;
+                # 4 - failure, wrong goal; 8 - goal canceled before started executing) -> sleep for X [s]
+                if self.status_buffer == 2 or self.status_buffer == 3 or \
+                        self.status_buffer == 4 or self.status_buffer == 8:
+                    rospy.sleep(rospy.Duration(2))   # sleep
+
                 print("(*) This is the result of arriving to the goal: ", self.status_buffer, "\n")
 
 
