@@ -298,8 +298,8 @@ class DFDdetectorClass:
 
         # DEBUG
 
-        print("| CLUSTER ID | CENTROID  | DIST2CENT | ROBOT POS |  \n")
-        print("__________________________________________________  \n")
+        # print("| CLUSTER ID | CENTROID  | DIST2CENT | ROBOT POS |  \n")
+        # print("__________________________________________________  \n")
 
         # END OF DEBUG
 
@@ -322,9 +322,9 @@ class DFDdetectorClass:
 
                 # DEBUG
 
-                print("|   ", cluster.cluster_id, "      |   [", [c_j, c_i], "]    |   ", distance_from_centroid[-1],
-                      "    |   ", [robot_position_pix["j"], robot_position_pix["i"]], "      |  \n")
-                print("______________________________________  \n")
+                # print("|   ", cluster.cluster_id, "      |   [", [c_j, c_i], "]    |   ", distance_from_centroid[-1],
+                #       "    |   ", [robot_position_pix["j"], robot_position_pix["i"]], "      |  \n")
+                # print("______________________________________  \n")
 
                 # END OF DEBUG
 
@@ -352,14 +352,15 @@ class DFDdetectorClass:
             self.idx += 1
 
             # DEBUG
-            print("______________________________________  \n")
-            print("      THIS IS NOT CLOSEST FRONTIER      \n")
-            print("|   ", cluster_list[curr_distance_idx].cluster_id, "      |   [",
-                  [cluster_list[curr_distance_idx].cluster_centroid["j"],
-                   cluster_list[curr_distance_idx].cluster_centroid["i"]], "]    |   ",
-                  distance_from_centroid[curr_distance_idx], "    |   ",
-                  [robot_position_pix["j"], robot_position_pix["i"]], "      |  \n")
-            print("______________________________________  \n")
+
+            # print("______________________________________  \n")
+            # print("      THIS IS NOT CLOSEST FRONTIER      \n")
+            # print("|   ", cluster_list[curr_distance_idx].cluster_id, "      |   [",
+            #       [cluster_list[curr_distance_idx].cluster_centroid["j"],
+            #        cluster_list[curr_distance_idx].cluster_centroid["i"]], "]    |   ",
+            #       distance_from_centroid[curr_distance_idx], "    |   ",
+            #       [robot_position_pix["j"], robot_position_pix["i"]], "      |  \n")
+            # print("______________________________________  \n")
 
             # END OF DEBUG
 
@@ -374,14 +375,15 @@ class DFDdetectorClass:
 
             self.idx = 1  # zeroing the counter
             # DEBUG
-            print("______________________________________  \n")
-            print("      THIS IS CLOSEST FRONTIER          \n")
-            print("|   ", cluster_list[min_distance_idx].cluster_id, "      |   [",
-                  [cluster_list[min_distance_idx].cluster_centroid["j"],
-                   cluster_list[min_distance_idx].cluster_centroid["i"]], "]    |   ",
-                  distance_from_centroid[min_distance_idx], "    |   ",
-                  [robot_position_pix["j"], robot_position_pix["i"]], "      |  \n")
-            print("______________________________________  \n")
+
+            # print("______________________________________  \n")
+            # print("      THIS IS CLOSEST FRONTIER          \n")
+            # print("|   ", cluster_list[min_distance_idx].cluster_id, "      |   [",
+            #       [cluster_list[min_distance_idx].cluster_centroid["j"],
+            #        cluster_list[min_distance_idx].cluster_centroid["i"]], "]    |   ",
+            #       distance_from_centroid[min_distance_idx], "    |   ",
+            #       [robot_position_pix["j"], robot_position_pix["i"]], "      |  \n")
+            # print("______________________________________  \n")
 
             # END OF DEBUG
 
@@ -430,13 +432,18 @@ class TurtleBotSlamExplorer:
         self.tf2_listener = tf2_ros.TransformListener(self.tf2_buffer)  # listens for new frames and calculating
         # translation and rotation between them
 
-        self.status_buffer = np.zeros((10,), dtype=int)  # stores last 10 statuses of the goal
+        self.status_buffer = np.zeros((10,), dtype=int)                 # stores last 10 statuses of the goal
+        self.status_buffer_timestamp = [rospy.Duration(0.0), rospy.Duration(0.0), rospy.Duration(0.0), rospy.Duration(0.0),
+                                        rospy.Duration(0.0), rospy.Duration(0.0), rospy.Duration(0.0), rospy.Duration(0.0),
+                                        rospy.Duration(0.0), rospy.Duration(0.0)]   # stores timestamps of last 10 statuses
 
         self.first_goal: bool = True  # flag, which indicates, that robot goes
         # to it's first goal
 
         self.min_vel = 0.18  # [m/s] minimal speed of TurtleBot
         # set up in base_local_planner_params.yamls
+
+        self.t_diff_goals = 0.1         # [s] due to goal slippering - required time difference between sending goals
 
     # FUNCTION, WHICH MAKES NEW FRAME BY TRANSFORMING FROM OLD AND SENDS IT OUT TO BUFFER
     def add_new_transformed_frame(self, parent_frame_id: str, child_frame_id: str, translation: dict, rotation: dict):
@@ -614,6 +621,13 @@ class TurtleBotSlamExplorer:
         # min frontier size is 0.2 [m], 0.9 - lower percentage cutoff is 90 [%]
         frontier_detector = DFDdetectorClass(0.0026, 0.9)
 
+        raw_map = rospy.wait_for_message('/map', OccupancyGrid)  # get map with metadata
+        raw_map_data_numpy = np.asarray(raw_map.data)  # 1d map -> np.ndarray
+
+        previous_map_reshape = raw_map_data_numpy.reshape((raw_map.info.height,  # reshaping 1d np.ndarray
+                                                                 raw_map.info.width))  # to 2d with right size
+        # Occupancy grid explanation: -1 - unknown, 100 - Occupied, 0 - not occupied #
+
         while not rospy.is_shutdown():
 
             # FETCHING MAP #
@@ -642,11 +656,6 @@ class TurtleBotSlamExplorer:
                                                                              raw_costmap.info.width))
 
             # costmap explanation: -1 - unknown, 0 -> 100 - probability of occupancy
-
-            # setting the 'first goal' flag to zero
-            if self.first_goal:
-                previous_map_reshape = raw_map_data_numpy_reshape
-                self.first_goal = False
 
             # (!) FRONTIER DETECTION PART
 
@@ -683,7 +692,7 @@ class TurtleBotSlamExplorer:
             if approximate_travel_time < 5:
                 approximate_travel_time = 5
 
-            print('This is goal coords:', goal_coords)
+            print('This is goal coords:', goal_coords, "\n")
 
             # SETTING THE FRAMES AND RETURNING CALCULATED TRANSFORMATION
 
@@ -691,16 +700,12 @@ class TurtleBotSlamExplorer:
                                                                                                  goal_coords,
                                                                                                  "map",
                                                                                                  "goal coordinates")
-            # REFRESHING THE GOAL STATUS BUFFER
 
-            self.status_buffer = np.append(self.status_buffer, self.action_client.get_state())  # append last status
-                                                                                                # to the buffer
-            self.status_buffer = np.delete(self.status_buffer, 0)  # delete the oldest
-
-            print("(*) This is last 10 goal statuses: ", self.status_buffer, "\n")
-
-            # SENDING THE GOAL TO THE TURTLEBOT
-            if resulting_transformation:
+            # SENDING THE GOAL TO THE TURTLEBOT (if transformation is made and time since last goal sending is more than
+            # 0.5 [s] due to slippering of the goals)
+            if resulting_transformation and \
+                    (self.status_buffer_timestamp[-1] - self.status_buffer_timestamp[-2]).to_sec() > self.t_diff_goals \
+                    or resulting_transformation and self.first_goal:
                 goal = MoveBaseGoal()
                 goal.target_pose.header.frame_id = "map"
                 goal.target_pose.header.stamp = rospy.Time.now()
@@ -712,6 +717,21 @@ class TurtleBotSlamExplorer:
                 # accept the goal)
                 self.action_client.send_goal_and_wait(goal, rospy.Duration(2 * approximate_travel_time),
                                                       rospy.Duration(0.0))
+
+                # setting the 'first goal' flag to zero
+                if self.first_goal:
+                    self.first_goal = False
+
+            # REFRESHING THE GOAL STATUS BUFFER
+            self.status_buffer_timestamp.append(rospy.Time.now())  # append last timestmp
+            self.status_buffer = np.append(self.status_buffer,
+                                           self.action_client.get_state())  # append last status
+            # to the buffer
+            self.status_buffer_timestamp.remove(self.status_buffer_timestamp[0])  # delete the oldest
+            self.status_buffer = np.delete(self.status_buffer, 0)  # delete the oldest
+
+            print("(*) This is last 10 goal statuses: ", self.status_buffer, "\n")
+            print("(*) This is timestamps of last 10 goal statuses: ", self.status_buffer_timestamp, "\n")
 
 
 def main():
