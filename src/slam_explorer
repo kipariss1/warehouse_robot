@@ -630,108 +630,122 @@ class TurtleBotSlamExplorer:
 
         while not rospy.is_shutdown():
 
-            # FETCHING MAP #
+            # condition to prevent frontier slipping
+            if (self.status_buffer_timestamp[-1] - self.status_buffer_timestamp[-2]).to_sec() > self.t_diff_goals or \
+                    self.first_goal:
 
-            raw_map = rospy.wait_for_message('/map', OccupancyGrid)  # get map with metadata
-            raw_map_data_numpy = np.asarray(raw_map.data)  # 1d map -> np.ndarray
+                # FETCHING MAP #
 
-            raw_map_data_numpy_reshape = raw_map_data_numpy.reshape((raw_map.info.height,  # reshaping 1d np.ndarray
-                                                                     raw_map.info.width))  # to 2d with right size
-            # Occupancy grid explanation: -1 - unknown, 100 - Occupied, 0 - not occupied #
+                raw_map = rospy.wait_for_message('/map', OccupancyGrid)  # get map with metadata
+                raw_map_data_numpy = np.asarray(raw_map.data)  # 1d map -> np.ndarray
 
-            # get position of origin of the map in the /map frame
-            raw_map_origin_pos = {"x": raw_map.info.origin.position.x,
-                                  "y": raw_map.info.origin.position.y}
+                raw_map_data_numpy_reshape = raw_map_data_numpy.reshape((raw_map.info.height,  # reshaping 1d np.ndarray
+                                                                         raw_map.info.width))  # to 2d with right size
+                # Occupancy grid explanation: -1 - unknown, 100 - Occupied, 0 - not occupied #
 
-            # get raw map resolution [m/cell]
-            raw_map_resolution = raw_map.info.resolution
+                # get position of origin of the map in the /map frame
+                raw_map_origin_pos = {"x": raw_map.info.origin.position.x,
+                                      "y": raw_map.info.origin.position.y}
 
-            # FETCHING COSTMAP #
+                # get raw map resolution [m/cell]
+                raw_map_resolution = raw_map.info.resolution
 
-            # get costmap with metadata:
-            raw_costmap = rospy.wait_for_message('/move_base/global_costmap/costmap', OccupancyGrid)
-            raw_costmap_data_numpy = np.asarray(raw_map.data, dtype=np.int8)  # 1d map -> np.ndarray
-            # reshaping 1d np.ndarray to 2d with right size:
-            raw_costmap_data_numpy_reshape = raw_costmap_data_numpy.reshape((raw_costmap.info.height,
-                                                                             raw_costmap.info.width))
+                # FETCHING COSTMAP #
 
-            # costmap explanation: -1 - unknown, 0 -> 100 - probability of occupancy
+                # get costmap with metadata:
+                raw_costmap = rospy.wait_for_message('/move_base/global_costmap/costmap', OccupancyGrid)
+                raw_costmap_data_numpy = np.asarray(raw_map.data, dtype=np.int8)  # 1d map -> np.ndarray
+                # reshaping 1d np.ndarray to 2d with right size:
+                raw_costmap_data_numpy_reshape = raw_costmap_data_numpy.reshape((raw_costmap.info.height,
+                                                                                 raw_costmap.info.width))
 
-            # (!) FRONTIER DETECTION PART
+                # costmap explanation: -1 - unknown, 0 -> 100 - probability of occupancy
 
-            # # * DFD:
+                # (!) FRONTIER DETECTION PART
 
-            # get pose of robot in [pixels] and [m]
-            pose_of_robot_pix, pose_of_robot_m = self.get_pose_of_robot(raw_map_origin_pos, raw_map_resolution)
+                # # * DFD:
 
-            # DEBUG
+                # get pose of robot in [pixels] and [m]
+                pose_of_robot_pix, pose_of_robot_m = self.get_pose_of_robot(raw_map_origin_pos, raw_map_resolution)
 
-            # self.add_new_transformed_frame("lower left corner", "fetched robot position",
-            #                                # x coordinates in [m] of cell(0,0) on the /map frame
-            #                                {"x": pose_of_robot_m["x"],
-            #                                 # y coordinates in [m] of cell(0,0) on the /map frame
-            #                                 "y": pose_of_robot_m["y"],
-            #                                 "z": 0},
-            #                                {"x": 0, "y": 0, "z": 0, "w": 1})
+                # DEBUG
 
-            # END OF DEBUG
+                # self.add_new_transformed_frame("lower left corner", "fetched robot position",
+                #                                # x coordinates in [m] of cell(0,0) on the /map frame
+                #                                {"x": pose_of_robot_m["x"],
+                #                                 # y coordinates in [m] of cell(0,0) on the /map frame
+                #                                 "y": pose_of_robot_m["y"],
+                #                                 "z": 0},
+                #                                {"x": 0, "y": 0, "z": 0, "w": 1})
 
-            # get current coordinates of goal in [m]
-            goal_coords = frontier_detector.frontier_detection_DFD(raw_map_data_numpy_reshape,
-                                                                   raw_costmap_data_numpy_reshape,
-                                                                   pose_of_robot_pix,
-                                                                   raw_map.info.resolution,
-                                                                   previous_map_reshape)
-            previous_map_reshape = raw_map_data_numpy_reshape
+                # END OF DEBUG
 
-            # calculating the aproximation of travel time to the goal
-            straight_distance = sqrt((goal_coords["x"] - pose_of_robot_m["x"]) ** 2 +
-                                     (goal_coords["y"] - pose_of_robot_m["y"]) ** 2)
+                # get current coordinates of goal in [m]
+                goal_coords = frontier_detector.frontier_detection_DFD(raw_map_data_numpy_reshape,
+                                                                       raw_costmap_data_numpy_reshape,
+                                                                       pose_of_robot_pix,
+                                                                       raw_map.info.resolution,
+                                                                       previous_map_reshape)
+                previous_map_reshape = raw_map_data_numpy_reshape
 
-            approximate_travel_time = straight_distance / self.min_vel  # [s]
-            if approximate_travel_time < 5:
-                approximate_travel_time = 5
+                # calculating the aproximation of travel time to the goal
+                straight_distance = sqrt((goal_coords["x"] - pose_of_robot_m["x"]) ** 2 +
+                                         (goal_coords["y"] - pose_of_robot_m["y"]) ** 2)
 
-            print('This is goal coords:', goal_coords, "\n")
+                approximate_travel_time = straight_distance / self.min_vel  # [s]
+                if approximate_travel_time < 5:
+                    approximate_travel_time = 5
 
-            # SETTING THE FRAMES AND RETURNING CALCULATED TRANSFORMATION
+                print('(*) This is goal coords:', goal_coords, "\n")
 
-            resulting_transformation, transform_errors = self.set_zeroed_map_frame_and_transform(raw_map,
-                                                                                                 goal_coords,
-                                                                                                 "map",
-                                                                                                 "goal coordinates")
+                # SETTING THE FRAMES AND RETURNING CALCULATED TRANSFORMATION
 
-            # SENDING THE GOAL TO THE TURTLEBOT (if transformation is made and time since last goal sending is more than
-            # 0.5 [s] due to slippering of the goals)
-            if resulting_transformation and \
-                    (self.status_buffer_timestamp[-1] - self.status_buffer_timestamp[-2]).to_sec() > self.t_diff_goals \
-                    or resulting_transformation and self.first_goal:
-                goal = MoveBaseGoal()
-                goal.target_pose.header.frame_id = "map"
-                goal.target_pose.header.stamp = rospy.Time.now()
-                goal.target_pose.pose.position.x = resulting_transformation.transform.translation.x
-                goal.target_pose.pose.position.y = resulting_transformation.transform.translation.y
-                goal.target_pose.pose.orientation.w = 1.0
+                resulting_transformation, transform_errors = self.set_zeroed_map_frame_and_transform(raw_map,
+                                                                                                     goal_coords,
+                                                                                                     "map",
+                                                                                                     "goal coordinates")
 
-                # Send goal with timeout: args: (_, timeout for robot to move to the goal, timeout for robot to
-                # accept the goal)
-                self.action_client.send_goal_and_wait(goal, rospy.Duration(2 * approximate_travel_time),
-                                                      rospy.Duration(0.0))
+                # SENDING THE GOAL TO THE TURTLEBOT
+                if resulting_transformation:
+                    goal = MoveBaseGoal()
+                    goal.target_pose.header.frame_id = "map"
+                    goal.target_pose.header.stamp = rospy.Time.now()
+                    goal.target_pose.pose.position.x = resulting_transformation.transform.translation.x
+                    goal.target_pose.pose.position.y = resulting_transformation.transform.translation.y
+                    goal.target_pose.pose.orientation.w = 1.0
 
-                # setting the 'first goal' flag to zero
-                if self.first_goal:
-                    self.first_goal = False
+                    # Send goal with timeout: args: (_, timeout for robot to move to the goal, timeout for robot to
+                    # accept the goal)
+                    self.action_client.send_goal_and_wait(goal, rospy.Duration(2 * approximate_travel_time),
+                                                          rospy.Duration(0.0))
 
-            # REFRESHING THE GOAL STATUS BUFFER
-            self.status_buffer_timestamp.append(rospy.Time.now())  # append last timestmp
-            self.status_buffer = np.append(self.status_buffer,
-                                           self.action_client.get_state())  # append last status
-            # to the buffer
-            self.status_buffer_timestamp.remove(self.status_buffer_timestamp[0])  # delete the oldest
-            self.status_buffer = np.delete(self.status_buffer, 0)  # delete the oldest
+                    # setting the 'first goal' flag to zero
+                    if self.first_goal:
+                        self.first_goal = False
 
-            print("(*) This is last 10 goal statuses: ", self.status_buffer, "\n")
-            print("(*) This is timestamps of last 10 goal statuses: ", self.status_buffer_timestamp, "\n")
+                # REFRESHING THE GOAL STATUS BUFFER
+                self.status_buffer_timestamp.append(rospy.Time.now())  # append last timestmp
+                self.status_buffer = np.append(self.status_buffer,
+                                               self.action_client.get_state())  # append last status
+                # to the buffer
+                self.status_buffer_timestamp.remove(self.status_buffer_timestamp[0])  # delete the oldest
+                self.status_buffer = np.delete(self.status_buffer, 0)  # delete the oldest
+
+                print("(*) This is last 10 goal statuses: ", self.status_buffer, "\n")
+                print("(*) This is timestamps of last 10 goal statuses: ", self.status_buffer_timestamp, "\n")
+
+            else:
+
+                # REFRESHING THE GOAL STATUS BUFFER
+                self.status_buffer_timestamp.append(rospy.Time.now())  # append last timestmp
+                self.status_buffer = np.append(self.status_buffer,
+                                               self.action_client.get_state())  # append last status
+                # to the buffer
+                self.status_buffer_timestamp.remove(self.status_buffer_timestamp[0])  # delete the oldest
+                self.status_buffer = np.delete(self.status_buffer, 0)  # delete the oldest
+
+                print("(*) This is last 10 goal statuses: ", self.status_buffer, "\n")
+                print("(*) This is timestamps of last 10 goal statuses: ", self.status_buffer_timestamp, "\n")
 
 
 def main():
