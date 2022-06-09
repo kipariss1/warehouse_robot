@@ -3,9 +3,9 @@
 <launch>
 	<arg name="launch_gazebo" default="false" doc="Launch simulation or not"/>
 	
-<!--	<include file="$(find turtlebot3_gazebo)/launch/turtlebot3_house.launch" if="$(arg launch_gazebo)"/> --> 
+<!--	<include file="$(find turtlebot3_gazebo)/launch/turtlebot3_house.launch" if="$(arg launch_gazebo)"/> -->
 	
-	<include file="$(find turtlebot3_gazebo)/launch/test_room_world.launch" if="$(arg launch_gazebo)"/>  
+	<include file="$(find turtlebot3_gazebo)/launch/test_room_world.launch" if="$(arg launch_gazebo)"/>   
 	
 <!--	<include file="$(find turtlebot3_gazebo)/launch/turtlebot3_world.launch" if="$(arg launch_gazebo)"/> --> 
 	
