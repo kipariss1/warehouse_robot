@@ -630,6 +630,8 @@ class TurtleBotSlamExplorer:
 
         while not rospy.is_shutdown():
 
+            # TODO: implement finite state machine here
+
             # condition to prevent frontier slipping
             if (self.status_buffer_timestamp[-1] - self.status_buffer_timestamp[-2]).to_sec() > self.t_diff_goals or \
                     self.first_goal:
