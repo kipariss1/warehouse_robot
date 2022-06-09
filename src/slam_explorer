@@ -16,9 +16,6 @@ import cv2
 from visualization_msgs.msg import Marker  # for custom markers in RViz
 from std_msgs.msg import Header, ColorRGBA  # for custom markers in RViz
 
-
-# from DFD_class.DFD_frontier_detection import DFDdetectorClass       # import custom class
-
 # datatype for storing the cluster
 class Cluster:
 
@@ -541,7 +538,7 @@ class TurtleBotSlamExplorer:
         #############################################################################
 
     # FOR NOW THIS IS NAIVE FRONTIER DETECTING ALGORITHM, RANDOMLY CHOSING UNKNOWN CELLS ON THE MAP
-    def frontier_detection(self, raw_map_data_numpy_reshape: np.ndarray,
+    def naive_frontier_detection(self, raw_map_data_numpy_reshape: np.ndarray,
                            raw_costmap_data_numpy_reshape: np.ndarray) -> dict:
 
         # goal is to send turtlebot to the cell of the map with coordinates [raw_map_numpy["x"], -//-["y"]]
@@ -622,8 +619,6 @@ class TurtleBotSlamExplorer:
 
         while not rospy.is_shutdown():
 
-            # TODO: implement finite state machine here
-
             # "INIT" STATE
             if self.state == 0:
 
@@ -632,7 +627,7 @@ class TurtleBotSlamExplorer:
                 print("_|___________________________________|_")
 
                 # args: min frontier size is 0.2 [m^2], 0.9 - lower percentage cutoff is 90 [%]
-                frontier_detector = DFDdetectorClass(0.0026, 0.9)
+                frontier_detector = DFDdetectorClass(0.0026, 0.9)       # init frontier detector class
                 raw_map = rospy.wait_for_message('/map', OccupancyGrid)  # get map with metadata
                 raw_map_data_numpy = np.asarray(raw_map.data)  # 1d map -> np.ndarray
                 previous_map_reshape = raw_map_data_numpy.reshape((raw_map.info.height,  # reshaping 1d np.ndarray
@@ -727,13 +722,15 @@ class TurtleBotSlamExplorer:
                                                                                                      "map",
                                                                                                      "goal coordinates")
 
+                # checking if tf server made transformation
                 if resulting_transformation:
 
                     self.state = 3          # going to the next state
 
                 else:
 
-                    self.state = 1          # going to the "SETTING UP GOAL IN ARRAY FRAME" state
+                    pass                    # wait for the transformation
+                    # self.state = 1          # going to the "SETTING UP GOAL IN ARRAY FRAME" state
 
             # "SENDING GOAL" STATE
             if self.state == 3:
@@ -754,12 +751,19 @@ class TurtleBotSlamExplorer:
                 self.action_client.send_goal_and_wait(goal, rospy.Duration(2 * approximate_travel_time),
                                                       rospy.Duration(0.0))
 
-                # setting the 'first goal' flag to zero
-                if self.first_goal:
-                    self.first_goal = False
+                # condition to prevent frontier slipping
+                if (self.status_buffer_timestamp[-1] - self.status_buffer_timestamp[-2]).to_sec() > self.t_diff_goals \
+                        or self.first_goal:
 
-                self.state = 1      # go to the "SETTING UP GOAL IN ARRAY FRAME" state
+                    # setting the 'first goal' flag to zero
+                    if self.first_goal:
+                        self.first_goal = False
 
+                    self.state = 1      # go to the "SETTING UP GOAL IN ARRAY FRAME" state
+
+                else:
+
+                    pass    # wait to prevent goal slipping
 
             # REFRESHING THE GOAL STATUS BUFFER
             self.status_buffer_timestamp.append(rospy.Time.now())  # append last timestmp
