@@ -445,6 +445,8 @@ class TurtleBotSlamExplorer:
 
         self.t_diff_goals = 0.1         # [s] due to goal slippering - required time difference between sending goals
 
+        self.state = 0                  # state enumerator for state machine in self.explore()
+
     # FUNCTION, WHICH MAKES NEW FRAME BY TRANSFORMING FROM OLD AND SENDS IT OUT TO BUFFER
     def add_new_transformed_frame(self, parent_frame_id: str, child_frame_id: str, translation: dict, rotation: dict):
 
@@ -618,23 +620,32 @@ class TurtleBotSlamExplorer:
     # THIS IS MAIN FUNCTION OF CLASS, IT IMPLEMENTS AUTONOMOUS EXPLORATION
     def explore(self):
 
-        # min frontier size is 0.2 [m], 0.9 - lower percentage cutoff is 90 [%]
-        frontier_detector = DFDdetectorClass(0.0026, 0.9)
-
-        raw_map = rospy.wait_for_message('/map', OccupancyGrid)  # get map with metadata
-        raw_map_data_numpy = np.asarray(raw_map.data)  # 1d map -> np.ndarray
-
-        previous_map_reshape = raw_map_data_numpy.reshape((raw_map.info.height,  # reshaping 1d np.ndarray
-                                                                 raw_map.info.width))  # to 2d with right size
-        # Occupancy grid explanation: -1 - unknown, 100 - Occupied, 0 - not occupied #
-
         while not rospy.is_shutdown():
 
             # TODO: implement finite state machine here
 
-            # condition to prevent frontier slipping
-            if (self.status_buffer_timestamp[-1] - self.status_buffer_timestamp[-2]).to_sec() > self.t_diff_goals or \
-                    self.first_goal:
+            # "INIT" STATE
+            if self.state == 0:
+
+                print("_|___________________________________|_")
+                print(" |     This is state: ", self.state, "            | ")
+                print("_|___________________________________|_")
+
+                # args: min frontier size is 0.2 [m^2], 0.9 - lower percentage cutoff is 90 [%]
+                frontier_detector = DFDdetectorClass(0.0026, 0.9)
+                raw_map = rospy.wait_for_message('/map', OccupancyGrid)  # get map with metadata
+                raw_map_data_numpy = np.asarray(raw_map.data)  # 1d map -> np.ndarray
+                previous_map_reshape = raw_map_data_numpy.reshape((raw_map.info.height,  # reshaping 1d np.ndarray
+                                                                   raw_map.info.width))  # to 2d with right size
+                # Occupancy grid explanation: -1 - unknown, 100 - Occupied, 0 - not occupied #
+                self.state = 1             # goes to the next state
+
+            # "SETTING UP GOAL IN ARRAY FRAME" STATE
+            if self.state == 1:
+
+                print("_|___________________________________|_")
+                print(" |     This is state: ", self.state, "            | ")
+                print("_|___________________________________|_")
 
                 # FETCHING MAP #
 
@@ -690,6 +701,15 @@ class TurtleBotSlamExplorer:
                                                                        previous_map_reshape)
                 previous_map_reshape = raw_map_data_numpy_reshape
 
+                self.state = 2      # going to the next state
+
+            # "SETTING UP THE GOAL IN THE MAP FRAME" STATE
+            if self.state == 2:
+
+                print("_|___________________________________|_")
+                print(" |     This is state: ", self.state, "            | ")
+                print("_|___________________________________|_")
+
                 # calculating the aproximation of travel time to the goal
                 straight_distance = sqrt((goal_coords["x"] - pose_of_robot_m["x"]) ** 2 +
                                          (goal_coords["y"] - pose_of_robot_m["y"]) ** 2)
@@ -707,47 +727,50 @@ class TurtleBotSlamExplorer:
                                                                                                      "map",
                                                                                                      "goal coordinates")
 
-                # SENDING THE GOAL TO THE TURTLEBOT
                 if resulting_transformation:
-                    goal = MoveBaseGoal()
-                    goal.target_pose.header.frame_id = "map"
-                    goal.target_pose.header.stamp = rospy.Time.now()
-                    goal.target_pose.pose.position.x = resulting_transformation.transform.translation.x
-                    goal.target_pose.pose.position.y = resulting_transformation.transform.translation.y
-                    goal.target_pose.pose.orientation.w = 1.0
 
-                    # Send goal with timeout: args: (_, timeout for robot to move to the goal, timeout for robot to
-                    # accept the goal)
-                    self.action_client.send_goal_and_wait(goal, rospy.Duration(2 * approximate_travel_time),
-                                                          rospy.Duration(0.0))
+                    self.state = 3          # going to the next state
 
-                    # setting the 'first goal' flag to zero
-                    if self.first_goal:
-                        self.first_goal = False
+                else:
 
-                # REFRESHING THE GOAL STATUS BUFFER
-                self.status_buffer_timestamp.append(rospy.Time.now())  # append last timestmp
-                self.status_buffer = np.append(self.status_buffer,
-                                               self.action_client.get_state())  # append last status
-                # to the buffer
-                self.status_buffer_timestamp.remove(self.status_buffer_timestamp[0])  # delete the oldest
-                self.status_buffer = np.delete(self.status_buffer, 0)  # delete the oldest
+                    self.state = 1          # going to the "SETTING UP GOAL IN ARRAY FRAME" state
 
-                print("(*) This is last 10 goal statuses: ", self.status_buffer, "\n")
-                print("(*) This is timestamps of last 10 goal statuses: ", self.status_buffer_timestamp, "\n")
+            # "SENDING GOAL" STATE
+            if self.state == 3:
 
-            else:
+                print("_|___________________________________|_")
+                print(" |     This is state: ", self.state, "            | ")
+                print("_|___________________________________|_")
 
-                # REFRESHING THE GOAL STATUS BUFFER
-                self.status_buffer_timestamp.append(rospy.Time.now())  # append last timestmp
-                self.status_buffer = np.append(self.status_buffer,
-                                               self.action_client.get_state())  # append last status
-                # to the buffer
-                self.status_buffer_timestamp.remove(self.status_buffer_timestamp[0])  # delete the oldest
-                self.status_buffer = np.delete(self.status_buffer, 0)  # delete the oldest
+                goal = MoveBaseGoal()
+                goal.target_pose.header.frame_id = "map"
+                goal.target_pose.header.stamp = rospy.Time.now()
+                goal.target_pose.pose.position.x = resulting_transformation.transform.translation.x
+                goal.target_pose.pose.position.y = resulting_transformation.transform.translation.y
+                goal.target_pose.pose.orientation.w = 1.0
 
-                print("(*) This is last 10 goal statuses: ", self.status_buffer, "\n")
-                print("(*) This is timestamps of last 10 goal statuses: ", self.status_buffer_timestamp, "\n")
+                # Send goal with timeout: args: (_, timeout for robot to move to the goal, timeout for robot to
+                # accept the goal)
+                self.action_client.send_goal_and_wait(goal, rospy.Duration(2 * approximate_travel_time),
+                                                      rospy.Duration(0.0))
+
+                # setting the 'first goal' flag to zero
+                if self.first_goal:
+                    self.first_goal = False
+
+                self.state = 1      # go to the "SETTING UP GOAL IN ARRAY FRAME" state
+
+
+            # REFRESHING THE GOAL STATUS BUFFER
+            self.status_buffer_timestamp.append(rospy.Time.now())  # append last timestmp
+            self.status_buffer = np.append(self.status_buffer,
+                                           self.action_client.get_state())  # append last status
+            # to the buffer
+            self.status_buffer_timestamp.remove(self.status_buffer_timestamp[0])  # delete the oldest
+            self.status_buffer = np.delete(self.status_buffer, 0)  # delete the oldest
+
+            print("(*) This is last 10 goal statuses: ", self.status_buffer, "\n")
+            print("(*) This is timestamps of last 10 goal statuses: ", self.status_buffer_timestamp, "\n")
 
 
 def main():
