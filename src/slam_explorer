@@ -16,6 +16,7 @@ import cv2
 from visualization_msgs.msg import Marker  # for custom markers in RViz
 from std_msgs.msg import Header, ColorRGBA  # for custom markers in RViz
 
+
 # datatype for storing the cluster
 class Cluster:
 
@@ -78,7 +79,7 @@ class DFDdetectorClass:
 
         self.safe_boundary_between_goal_and_walls = 1   # [cells]
 
-        self.raw_map_data_numpy_reshape = np.zeros((0,0))   # global map for the class
+        self.raw_map_data_numpy_reshape = np.zeros((0, 0))   # global map for the class
 
     def map_gradient(self):
         map_I_copy = copy.deepcopy(self.raw_map_data_numpy_reshape)
