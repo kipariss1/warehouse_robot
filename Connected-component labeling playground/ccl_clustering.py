@@ -1,20 +1,12 @@
 #! /usr/bin/env python
 import random
-
-import rospy
-from nav_msgs.msg import OccupancyGrid, Odometry
 import numpy as np
-import pandas as pd  # for saving the map to csv
-import actionlib  # lib for placing the goal and robot autonomously navigating there
-from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
-from geometry_msgs.msg import Transform, TransformStamped, Vector3, Quaternion, Pose, Point
 import tf2_ros  # lib for translating and rotating the frames
 from random import randint
 import copy
 from math import sqrt
 import cv2
-from visualization_msgs.msg import Marker  # for custom markers in RViz
-from std_msgs.msg import Header, ColorRGBA  # for custom markers in RViz
+import pandas as pd
 
 
 # datatype for storing the cluster
@@ -410,6 +402,36 @@ class DFDdetectorClass:
 
         return goal_coords_m
 
+
+def main():
+
+    # load up the "previous" map
+    previous_test_map = np.asarray(pd.read_csv('previous_map_ref_copy.csv', sep=',', header=None))
+    # load up map
+    test_map = np.asarray(pd.read_csv('map_ref_copy.csv', sep=',', header=None))
+    # trim "previous" map
+    previous_test_map = test_map[1:-1, 1:-1]
+    # trim map
+    test_map = test_map[1:-1, 1:-1]
+
+    # init detector class
+    detector_test = DFDdetectorClass(0.0026, 0.9)
+    # get goal coords
+    goal_coords = detector_test.frontier_detection_DFD(test_map,
+                                                       test_map,
+                                                       {"j": 39, "i": 61},
+                                                       0.05,
+                                                       previous_test_map)
+
+    # goal_coords = frontier_detector.frontier_detection_DFD(raw_map_data_numpy_reshape,
+    #                                                        raw_costmap_data_numpy_reshape,
+    #                                                        pose_of_robot_pix,
+    #                                                        raw_map.info.resolution,
+    #                                                        previous_map_reshape)
+
+
+if __name__ == "__main__":
+    main()
 
 
 
