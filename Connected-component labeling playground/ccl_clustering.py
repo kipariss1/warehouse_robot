@@ -132,20 +132,21 @@ class DFDdetectorClass:
 
         # DEBUG
 
-        cv2.namedWindow('CLUSTER ' + str(n_clusters), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
-        cv2.imshow('CLUSTER ' + str(n_clusters), nmap_mag_copy)  # show image on window 'win_name' made of numpy.ndarray
-        cv2.resizeWindow('CLUSTER ' + str(n_clusters), 1600, 900)  # resizing window on my resolution
-
-        cv2.waitKey(0)  # wait for key pressing
-        cv2.destroyAllWindows()  # close all windows
+        # cv2.namedWindow('CLUSTER ' + str(n_clusters), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+        # cv2.imshow('CLUSTER ' + str(n_clusters), nmap_mag_copy)  # show image on window 'win_name' made of numpy.ndarray
+        # cv2.resizeWindow('CLUSTER ' + str(n_clusters), 1600, 900)  # resizing window on my resolution
+        #
+        # cv2.waitKey(0)  # wait for key pressing
+        # cv2.destroyAllWindows()  # close all windows
 
         # DEBUG END
 
-        for i_cluster in range(1, n_clusters):
+        for i_cluster in range(1, n_clusters + 1):
 
             cluster_indices = np.where(labeled_nmap_mag_copy == i_cluster)
 
-            starting_point = {"j": cluster_indices[0][0], "i": cluster_indices[1][0]}
+            starting_point = {"j": cluster_indices[0][0], "i": cluster_indices[1][0]}if new_cluster.cluster_centroid["j"]:
+                    nmap_mag_copy[new_cluster.cluster_centroid["j"]][new_cluster.cluster_centroid["i"]] = 120
 
             # checking if there is a wall in the cluster
             if np.any(self.raw_map_data_numpy_reshape[cluster_indices]) == 100:
@@ -175,19 +176,24 @@ class DFDdetectorClass:
                 # (deleting the cluster from nmap_mag_copy for visualisation)
 
                 # DEBUG
-                if new_cluster.cluster_centroid["j"]:
-                    nmap_mag_copy[new_cluster.cluster_centroid["j"]][new_cluster.cluster_centroid["i"]] = 120
 
-                cv2.namedWindow('CLUSTER '+str(i_cluster), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
-                cv2.imshow('CLUSTER '+str(i_cluster), nmap_mag_copy)  # show image on window 'win_name' made of numpy.ndarray
-                cv2.resizeWindow('CLUSTER '+str(i_cluster), 1600, 900)  # resizing window on my resolution
-
-                cv2.waitKey(0)  # wait for key pressing
-                cv2.destroyAllWindows()  # close all windows
+                # if new_cluster.cluster_centroid["j"]:
+                #     nmap_mag_copy[new_cluster.cluster_centroid["j"]][new_cluster.cluster_centroid["i"]] = 120
+                #
+                # cv2.namedWindow('CLUSTER '+str(i_cluster), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+                # cv2.imshow('CLUSTER '+str(i_cluster), nmap_mag_copy)  # show image on window 'win_name' made of numpy.ndarray
+                # cv2.resizeWindow('CLUSTER '+str(i_cluster), 1600, 900)  # resizing window on my resolution
+                #
+                # cv2.waitKey(0)  # wait for key pressing
+                # cv2.destroyAllWindows()  # close all windows
 
                 # DEBUG END
 
-            nmap_mag_copy[cluster_indices] = 0
+                # (deleting the cluster and its centroid from nmap_mag_copy for visualisation)
+                nmap_mag_copy[cluster_indices] = 0
+
+                if new_cluster.cluster_centroid["j"]:
+                    nmap_mag_copy[new_cluster.cluster_centroid["j"]][new_cluster.cluster_centroid["i"]] = 0
 
         return cluster_list
 
