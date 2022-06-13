@@ -145,8 +145,7 @@ class DFDdetectorClass:
 
             cluster_indices = np.where(labeled_nmap_mag_copy == i_cluster)
 
-            starting_point = {"j": cluster_indices[0][0], "i": cluster_indices[1][0]}if new_cluster.cluster_centroid["j"]:
-                    nmap_mag_copy[new_cluster.cluster_centroid["j"]][new_cluster.cluster_centroid["i"]] = 120
+            starting_point = {"j": cluster_indices[0][0], "i": cluster_indices[1][0]}
 
             # checking if there is a wall in the cluster
             if np.any(self.raw_map_data_numpy_reshape[cluster_indices]) == 100:
