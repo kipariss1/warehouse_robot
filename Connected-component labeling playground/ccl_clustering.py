@@ -7,12 +7,13 @@ import copy
 from math import sqrt
 import cv2
 import pandas as pd
+import skimage
 
 
 # datatype for storing the cluster
 class Cluster:
 
-    def __init__(self, starting_point: dict, map_id: str, cluster_id: int, has_walls_inside_flag: bool):
+    def __init__(self, starting_point: dict, map_id: str, cluster_id: int, has_walls_inside_flag: bool = False):
         self.starting_point = starting_point  # starting point from which cluster is being searched further
         self.list_of_cells = np.asarray([[], []], dtype=int)  # list of cells of cluster
         self.map_id = map_id  # id of the map, on which clustering is conducted
@@ -120,155 +121,73 @@ class DFDdetectorClass:
 
         return nmap_mag
 
-    def check_neighbours(self, nmap_mag, j, i, cluster):
-
-        # Checking if any cells in the neighbourhood == 255 (high gradient)
-
-        if nmap_mag[j][i - 1] == 255:
-            cluster.add_pixel(j, i - 1)
-            # if cell == wall -> cluster has walls inside itself
-            if self.raw_map_data_numpy_reshape[j][i - 1] == 100:
-                cluster.has_walls_inside_flag = True
-            nmap_mag[j][i - 1] = 0
-            self.check_neighbours(nmap_mag, j, i - 1, cluster)
-
-        if nmap_mag[j - 1][i] == 255:
-            cluster.add_pixel(j - 1, i)
-            # if cell == wall -> cluster has walls inside itself
-            if self.raw_map_data_numpy_reshape[j - 1][i] == 100:
-                cluster.has_walls_inside_flag = True
-            nmap_mag[j - 1][i] = 0
-            self.check_neighbours(nmap_mag, j - 1, i, cluster)
-
-        if nmap_mag[j - 1][i - 1] == 255:
-            cluster.add_pixel(j - 1, i - 1)
-            # if cell == wall -> cluster has walls inside itself
-            if self.raw_map_data_numpy_reshape[j - 1][i - 1] == 100:
-                cluster.has_walls_inside_flag = True
-            nmap_mag[j - 1][i - 1] = 0
-            self.check_neighbours(nmap_mag, j - 1, i - 1, cluster)
-
-        if nmap_mag[j][i + 1] == 255:
-            cluster.add_pixel(j, i + 1)
-            # if cell == wall -> cluster has walls inside itself
-            if self.raw_map_data_numpy_reshape[j][i + 1] == 100:
-                cluster.has_walls_inside_flag = True
-            nmap_mag[j][i + 1] = 0
-            self.check_neighbours(nmap_mag, j, i + 1, cluster)
-
-        if nmap_mag[j + 1][i] == 255:
-            cluster.add_pixel(j + 1, i)
-            # if cell == wall -> cluster has walls inside itself
-            if self.raw_map_data_numpy_reshape[j + 1][i] == 100:
-                cluster.has_walls_inside_flag = True
-            nmap_mag[j + 1][i] = 0
-            self.check_neighbours(nmap_mag, j + 1, i, cluster)
-
-        if nmap_mag[j + 1][i + 1] == 255:
-            cluster.add_pixel(j + 1, i + 1)
-            # if cell == wall -> cluster has walls inside itself
-            if self.raw_map_data_numpy_reshape[j + 1][i + 1] == 100:
-                cluster.has_walls_inside_flag = True
-            nmap_mag[j + 1][i + 1] = 0
-            self.check_neighbours(nmap_mag, j + 1, i + 1, cluster)
-
-        if nmap_mag[j - 1][i + 1] == 255:
-            cluster.add_pixel(j - 1, i + 1)
-            # if cell == wall -> cluster has walls inside itself
-            if self.raw_map_data_numpy_reshape[j - 1][i + 1] == 100:
-                cluster.has_walls_inside_flag = True
-            nmap_mag[j - 1][i + 1] = 0
-            self.check_neighbours(nmap_mag, j - 1, i + 1, cluster)
-
-        if nmap_mag[j + 1][i - 1] == 255:
-            cluster.add_pixel(j + 1, i - 1)
-            # if cell == wall -> cluster has walls inside itself
-            if self.raw_map_data_numpy_reshape[j + 1][i - 1] == 100:
-                cluster.has_walls_inside_flag = True
-            nmap_mag[j + 1][i - 1] = 0
-            self.check_neighbours(nmap_mag, j + 1, i - 1, cluster)
-
-        return True
-
     def clustering(self, nmap_mag, robot_position):
 
         cluster_list: list = []  # creating list, which will store all cluster objects
         nmap_mag_copy = copy.deepcopy(nmap_mag)  # making copy of magnitude map, to be able to delete pixels from it
-        j_cl = 0  # numerator of clusters
 
-        frontier_indices = np.where(nmap_mag_copy == 255)  # searching for all cells on magnitude map,
-        # which have high gradient
+        labeled_nmap_mag_copy = skimage.measure.label(nmap_mag_copy)    # CCL implemented labeling (returns ndarray:int)
 
-        frontier_indices = np.asarray(frontier_indices)  # transforming to np.ndarray
+        n_clusters = np.amax(labeled_nmap_mag_copy)     # number of clusters (0-th cluster is background)
 
         # DEBUG
 
-        # cv2.namedWindow('CLUSTER ' + str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
-        # cv2.imshow('CLUSTER ' + str(j_cl), nmap_mag_copy)  # show image on window 'win_name' made of numpy.ndarray
-        # cv2.resizeWindow('CLUSTER ' + str(j_cl), 1600, 900)  # resizing window on my resolution
-        #
-        # cv2.waitKey(0)  # wait for key pressing
-        # cv2.destroyAllWindows()  # close all windows
+        cv2.namedWindow('CLUSTER ' + str(n_clusters), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+        cv2.imshow('CLUSTER ' + str(n_clusters), nmap_mag_copy)  # show image on window 'win_name' made of numpy.ndarray
+        cv2.resizeWindow('CLUSTER ' + str(n_clusters), 1600, 900)  # resizing window on my resolution
+
+        cv2.waitKey(0)  # wait for key pressing
+        cv2.destroyAllWindows()  # close all windows
 
         # DEBUG END
 
-        # while there are frontier cells left
-        while frontier_indices.any():
+        for i_cluster in range(1, n_clusters):
 
-            starting_point = {"j": frontier_indices[0][0], "i": frontier_indices[1][0]}  # define starting point
-            # check_neighbours function
+            cluster_indices = np.where(labeled_nmap_mag_copy == i_cluster)
 
-            nmap_mag_copy[frontier_indices[0][0]][frontier_indices[1][0]] = 0  # deleting pixel, that is
-            # already in cluster
-            # Defining new cluster:
+            starting_point = {"j": cluster_indices[0][0], "i": cluster_indices[1][0]}
 
-            # if starting point is inside the wall -> cluster wall_inside flag:=True
-            if self.raw_map_data_numpy_reshape[starting_point["j"]][starting_point["i"]] == 100:
-                new_cluster = Cluster(starting_point, 'nmap_mag', j_cl, True)   # init new cluster
+            # checking if there is a wall in the cluster
+            if np.any(self.raw_map_data_numpy_reshape[cluster_indices]) == 100:
+
+                # doesn't add cluster to cluster list (deleting the cluster from nmap_mag_copy for visualisation)
+                nmap_mag_copy[cluster_indices] = 0
+
             else:
-                new_cluster = Cluster(starting_point, 'nmap_mag', j_cl, False)  # init new cluster
 
-            self.check_neighbours(nmap_mag_copy, frontier_indices[0][0], frontier_indices[1][0], new_cluster)
+                # initialising new cluster
+                new_cluster = Cluster(starting_point, 'nmap_mag', i_cluster)
 
-            new_cluster.calculate_number_of_elements()  # calculate the number of cells in cluster
-            if new_cluster.number_of_elements > self.min_num_of_elements and not new_cluster.has_walls_inside_flag:
-                new_cluster.calculate_centroid()  # calculate centroid of the cluster
+                # adding all cells to cluster
+                for pixel in range(1, len(cluster_indices[0])):
+
+                    new_cluster.add_pixel(cluster_indices[0][pixel], cluster_indices[1][pixel])
+
+                new_cluster.calculate_number_of_elements()
+
+                # if cluster is bigger than cluster_min_size -> calculate its centroid
+                if new_cluster.number_of_elements > self.min_num_of_elements:
+
+                    new_cluster.calculate_centroid()
+
+                    cluster_list.append(copy.deepcopy(new_cluster))  # appending cluster to the cluster list
+
+                # (deleting the cluster from nmap_mag_copy for visualisation)
 
                 # DEBUG
+                if new_cluster.cluster_centroid["j"]:
+                    nmap_mag_copy[new_cluster.cluster_centroid["j"]][new_cluster.cluster_centroid["i"]] = 120
 
-                nmap_mag[new_cluster.cluster_centroid["j"]][new_cluster.cluster_centroid["i"]] = 120
+                cv2.namedWindow('CLUSTER '+str(i_cluster), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+                cv2.imshow('CLUSTER '+str(i_cluster), nmap_mag_copy)  # show image on window 'win_name' made of numpy.ndarray
+                cv2.resizeWindow('CLUSTER '+str(i_cluster), 1600, 900)  # resizing window on my resolution
 
-                # cv2.namedWindow('CLUSTER '+str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
-                # cv2.imshow('CLUSTER '+str(j_cl), nmap_mag)  # show image on window 'win_name' made of numpy.ndarray
-                # cv2.resizeWindow('CLUSTER '+str(j_cl), 1600, 900)  # resizing window on my resolution
-                #
-                # cv2.waitKey(0)  # wait for key pressing
-                # cv2.destroyAllWindows()  # close all windows
+                cv2.waitKey(0)  # wait for key pressing
+                cv2.destroyAllWindows()  # close all windows
 
                 # DEBUG END
 
-                cluster_list.append(copy.deepcopy(new_cluster))  # appending cluster to the cluster list
-
-                j_cl = j_cl + 1  # increase cluster enumerator
-
-            frontier_indices = np.where(nmap_mag_copy == 255)  # searching again for all cells on magnitude map,
-            # which have gradient ==255, not 0
-            # after check_neighbours function
-
-            frontier_indices = np.asarray(frontier_indices)  # transforming to np.ndarray
-
-        # DEBUG
-
-        # nmap_mag[robot_position["j"]][robot_position["i"]] = 200
-        #
-        # cv2.namedWindow('CLUSTER ' + str(j_cl), cv2.WINDOW_NORMAL)  # new window, named 'win_name'
-        # cv2.imshow('CLUSTER ' + str(j_cl), nmap_mag)  # show image on window 'win_name' made of numpy.ndarray
-        # cv2.resizeWindow('CLUSTER ' + str(j_cl), 1600, 900)  # resizing window on my resolution
-        #
-        # cv2.waitKey(0)  # wait for key pressing
-        # cv2.destroyAllWindows()  # close all windows
-
-        # DEBUG END
+            nmap_mag_copy[cluster_indices] = 0
 
         return cluster_list
 
