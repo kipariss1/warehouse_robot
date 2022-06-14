@@ -552,7 +552,7 @@ class TurtleBotSlamExplorer:
                 print("_|___________________________________|_")
 
                 # args: min frontier size is 0.2 [m^2], 0.9 - lower percentage cutoff is 90 [%]
-                frontier_detector = DFDdetectorClass(0.0026, 0.9)       # init frontier detector class
+                frontier_detector = DFDdetectorClass(0.05, 0.9)       # init frontier detector class
                 raw_map = rospy.wait_for_message('/map', OccupancyGrid)  # get map with metadata
                 raw_map_data_numpy = np.asarray(raw_map.data)  # 1d map -> np.ndarray
                 previous_map_reshape = raw_map_data_numpy.reshape((raw_map.info.height,  # reshaping 1d np.ndarray
@@ -676,19 +676,21 @@ class TurtleBotSlamExplorer:
                 self.action_client.send_goal_and_wait(goal, rospy.Duration(2 * approximate_travel_time),
                                                       rospy.Duration(0.0))
 
-                # condition to prevent frontier slipping
-                if (self.status_buffer_timestamp[-1] - self.status_buffer_timestamp[-2]).to_sec() > self.t_diff_goals \
-                        or self.first_goal:
+                self.state = 1  # go to the "SETTING UP GOAL IN ARRAY FRAME" state
 
-                    # setting the 'first goal' flag to zero
-                    if self.first_goal:
-                        self.first_goal = False
-
-                    self.state = 1      # go to the "SETTING UP GOAL IN ARRAY FRAME" state
-
-                else:
-
-                    pass    # wait to prevent goal slipping
+                # # condition to prevent frontier slipping
+                # if (self.status_buffer_timestamp[-1] - self.status_buffer_timestamp[-2]).to_sec() > self.t_diff_goals \
+                #         or self.first_goal:
+                #
+                #     # setting the 'first goal' flag to zero
+                #     if self.first_goal:
+                #         self.first_goal = False
+                #
+                #     self.state = 1      # go to the "SETTING UP GOAL IN ARRAY FRAME" state
+                #
+                # else:
+                #
+                #     pass    # wait to prevent goal slipping
 
             # REFRESHING THE GOAL STATUS BUFFER
             self.status_buffer_timestamp.append(rospy.Time.now())  # append last timestmp
