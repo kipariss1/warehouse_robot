@@ -205,7 +205,7 @@ class DFDdetectorClass:
         return cluster_list
 
     def frontier_detection_DFD(self, raw_map_data_numpy_reshape: np.ndarray,
-                               raw_costmap_data_numpy_reshape: np.ndarray, robot_position_pix,
+                               robot_position_pix,
                                map_resolution: float, previous_map_reshape) -> dict:
 
         self.raw_map_data_numpy_reshape = raw_map_data_numpy_reshape
@@ -583,15 +583,6 @@ class TurtleBotSlamExplorer:
                 # get raw map resolution [m/cell]
                 raw_map_resolution = raw_map.info.resolution
 
-                # FETCHING COSTMAP #
-
-                # get costmap with metadata:
-                raw_costmap = rospy.wait_for_message('/move_base/global_costmap/costmap', OccupancyGrid)
-                raw_costmap_data_numpy = np.asarray(raw_map.data, dtype=np.int8)  # 1d map -> np.ndarray
-                # reshaping 1d np.ndarray to 2d with right size:
-                raw_costmap_data_numpy_reshape = raw_costmap_data_numpy.reshape((raw_costmap.info.height,
-                                                                                 raw_costmap.info.width))
-
                 # costmap explanation: -1 - unknown, 0 -> 100 - probability of occupancy
 
                 # (!) FRONTIER DETECTION PART
@@ -615,7 +606,6 @@ class TurtleBotSlamExplorer:
 
                 # get current coordinates of goal in [m]
                 goal_coords = frontier_detector.frontier_detection_DFD(raw_map_data_numpy_reshape,
-                                                                       raw_costmap_data_numpy_reshape,
                                                                        pose_of_robot_pix,
                                                                        raw_map.info.resolution,
                                                                        previous_map_reshape)
@@ -677,20 +667,6 @@ class TurtleBotSlamExplorer:
                                                       rospy.Duration(0.0))
 
                 self.state = 1  # go to the "SETTING UP GOAL IN ARRAY FRAME" state
-
-                # # condition to prevent frontier slipping
-                # if (self.status_buffer_timestamp[-1] - self.status_buffer_timestamp[-2]).to_sec() > self.t_diff_goals \
-                #         or self.first_goal:
-                #
-                #     # setting the 'first goal' flag to zero
-                #     if self.first_goal:
-                #         self.first_goal = False
-                #
-                #     self.state = 1      # go to the "SETTING UP GOAL IN ARRAY FRAME" state
-                #
-                # else:
-                #
-                #     pass    # wait to prevent goal slipping
 
             # REFRESHING THE GOAL STATUS BUFFER
             self.status_buffer_timestamp.append(rospy.Time.now())  # append last timestmp
