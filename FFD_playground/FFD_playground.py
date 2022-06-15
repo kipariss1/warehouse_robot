@@ -11,6 +11,17 @@ class FFDdetectorCLass:
 
         pass
 
+    def get_laser_readings(self):
+
+        # TODO: Implement get laser readings in real script
+        pass
+
+    def map_laser_readings(self, laser_readings: np.ndarray, pos_of_robot_pix: dict, yaw_rot_of_robot):
+
+        for laser_reading in laser_readings:
+
+            pass
+
 
 def main():
 
@@ -34,18 +45,22 @@ def main():
 
     # DEBUG
 
-    # cv2.namedWindow('map', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
-    # cv2.imshow('map', copy.deepcopy(map_msg_data_reshape).astype(np.uint8))  # show image on window 'win_name' made of numpy.ndarray
-    # cv2.resizeWindow('map', 1600, 900)  # resizing window on my resolution
-    #
-    # cv2.waitKey(0)  # wait for key pressing
-    # cv2.destroyAllWindows()  # close all windows
+    cv2.namedWindow('map', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+    cv2.imshow('map', copy.deepcopy(map_msg_data_reshape).astype(np.uint8))  # show image on window 'win_name' made of numpy.ndarray
+    cv2.resizeWindow('map', 1600, 900)  # resizing window on my resolution
+
+    cv2.waitKey(0)  # wait for key pressing
+    cv2.destroyAllWindows()  # close all windows
 
     # DEBUG END
 
     # (*) setting up scan
 
     scan_msg_data = np.asarray(scan_msg[11:371])    # laser readings in polar coordinates (counterclockwise from "x")
+
+    pose_of_robot = {"j": 15, "i": 7}
+
+    yaw_rot_of_robot = 0.785                # yaw rotation angle 0.785 [rad] = 45 [deg]
 
 
 if __name__ == '__main__':
