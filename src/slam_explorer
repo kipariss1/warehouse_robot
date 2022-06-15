@@ -346,7 +346,12 @@ class FFDdetectorCLass:
 
 class TurtleBotSlamExplorer:
 
-    def __init__(self):
+    def __init__(self, frontier_detection_method):
+
+        # DFD - Yamauchi Frontier Detection (YFD)
+        # FFD - Fast Frontier Detection
+        # WFD - Wavefront Frontier Detection
+        self.frontier_detection_method = frontier_detection_method
 
         self.rate = rospy.Rate(5)  # rate of message sending is 10 Hz
 
@@ -560,8 +565,9 @@ class TurtleBotSlamExplorer:
                 print(" |     This is state: ", self.state, "            | ")
                 print("_|___________________________________|_")
 
-                # args: min frontier size is 0.2 [m^2], 0.9 - lower percentage cutoff is 90 [%]
-                frontier_detector = DFDdetectorClass(0.05, 0.9)       # init frontier detector class
+                if self.frontier_detection_method == "DFD":
+                    # args: min frontier size is 0.2 [m^2], 0.9 - lower percentage cutoff is 90 [%]
+                    frontier_detector = DFDdetectorClass(0.05, 0.9)       # init frontier detector class
                 raw_map = rospy.wait_for_message('/map', OccupancyGrid)  # get map with metadata
                 raw_map_data_numpy = np.asarray(raw_map.data)  # 1d map -> np.ndarray
                 previous_map_reshape = raw_map_data_numpy.reshape((raw_map.info.height,  # reshaping 1d np.ndarray
@@ -592,11 +598,7 @@ class TurtleBotSlamExplorer:
                 # get raw map resolution [m/cell]
                 raw_map_resolution = raw_map.info.resolution
 
-                # costmap explanation: -1 - unknown, 0 -> 100 - probability of occupancy
-
                 # (!) FRONTIER DETECTION PART
-
-                # # * DFD:
 
                 # get pose of robot in [pixels] and [m]
                 pose_of_robot_pix, pose_of_robot_m = self.get_pose_of_robot(raw_map_origin_pos, raw_map_resolution)
@@ -613,11 +615,20 @@ class TurtleBotSlamExplorer:
 
                 # END OF DEBUG
 
-                # get current coordinates of goal in [m]
-                goal_coords = frontier_detector.frontier_detection_DFD(raw_map_data_numpy_reshape,
-                                                                       pose_of_robot_pix,
-                                                                       raw_map.info.resolution,
-                                                                       previous_map_reshape)
+                if self.frontier_detection_method == "DFD":
+
+                    # # * DFD:
+
+                    # get current coordinates of goal in [m]
+                    goal_coords = frontier_detector.frontier_detection_DFD(raw_map_data_numpy_reshape,
+                                                                           pose_of_robot_pix,
+                                                                           raw_map.info.resolution,
+                                                                           previous_map_reshape)
+
+                if self.frontier_detection_method == "FFD":
+
+                    pass
+
                 previous_map_reshape = raw_map_data_numpy_reshape
 
                 self.state = 2      # going to the next state
@@ -691,7 +702,10 @@ class TurtleBotSlamExplorer:
 
 def main():
     rospy.init_node('slam_explorer_n')
-    slam_explorer = TurtleBotSlamExplorer()
+    # DFD - Yamauchi Frontier Detection (YFD)
+    # FFD - Fast Frontier Detection
+    # WFD - Wavefront Frontier Detection
+    slam_explorer = TurtleBotSlamExplorer("DFD")
     slam_explorer.explore()
 
 
