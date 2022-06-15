@@ -336,6 +336,14 @@ class DFDdetectorClass:
         return goal_coords_m
 
 
+# Fast Frontier Detection method implemented in the class
+class FFDdetectorCLass:
+
+    def __init__(self):
+
+        pass
+
+
 class TurtleBotSlamExplorer:
 
     def __init__(self):
