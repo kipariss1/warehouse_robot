@@ -129,6 +129,7 @@ class DFDdetectorClass:
 
         return nmap_mag
 
+    # Implements "Connected-Component Labeling" of binary image for clustering
     def clustering(self, nmap_mag, robot_position):
 
         cluster_list: list = []  # creating list, which will store all cluster objects
