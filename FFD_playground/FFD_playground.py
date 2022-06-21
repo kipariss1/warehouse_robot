@@ -17,7 +17,8 @@ class FFDdetectorCLass:
         # TODO: Implement get laser readings in real script
         pass
 
-    def map_laser_readings(self, laser_readings_polar: np.ndarray, pos_of_robot_pix: dict, yaw_rot_of_robot):
+    def map_laser_readings(self, laser_readings_polar: np.ndarray, map_msg_data_reshape: np.ndarray,
+                           pos_of_robot_m: dict, yaw_rot_of_robot, map_res):
 
         # Convert from polar coordinates to cartesian coordinates
 
@@ -39,25 +40,70 @@ class FFDdetectorCLass:
 
             else:
 
-                laser_readings_car_x[angle_of_reading] = 'inf'
+                laser_readings_car_x[angle_of_reading] = float('inf')
 
-                laser_readings_car_y[angle_of_reading] = 'inf'
+                laser_readings_car_y[angle_of_reading] = float('inf')
 
             angle_of_reading += 1   # increasing angle for next laser reading
 
         laser_readings_car = np.vstack((laser_readings_car_x, laser_readings_car_y))
 
-        # Transform /scan from robot's coordinate system to map coordinate system
+        # Transform /scan from robot's coordinate system to map (origin) coordinate system
 
         curr_laser_reading = {"x": None, "y": None}
 
+        laser_readings_car_orig_x = np.zeros(laser_readings_polar.shape)        # array of laser readings in x
+                                                                                # origin cartesian coordinates
+
+        laser_readings_car_orig_y = np.zeros(laser_readings_polar.shape)        # array of laser readings in y
+                                                                                # origin cartesian coordinates
+
         for laser_reading in range(0, laser_readings_car.shape[1] - 1):
 
-            # getting x,y coordinates in robot's coordinate system
-            curr_laser_reading["x"] = laser_readings_car[:, laser_reading][0]
-            curr_laser_reading["y"] = laser_readings_car[:, laser_reading][1]
+            if laser_readings_car[:, laser_reading][0] != float('inf'):
 
+                # getting x,y coordinates in robot's coordinate system
+                curr_laser_reading["x"] = laser_readings_car[:, laser_reading][0]
+                curr_laser_reading["y"] = laser_readings_car[:, laser_reading][1]
 
+                robot_frame_cords = np.array([[curr_laser_reading["x"]], [curr_laser_reading["y"]], [1]])
+
+                # setting up the transformation matrix for transforming from robot's frame to the map (origin) frame
+                transf_matx = np.array([[cos(yaw_rot_of_robot), -sin(yaw_rot_of_robot), pos_of_robot_m["x"]],
+                                        [sin(yaw_rot_of_robot), cos(yaw_rot_of_robot), pos_of_robot_m["y"]],
+                                        [0                    , 0                    ,                  1]])
+
+                # getting new coords in map (origin) frame:
+
+                origin_map_frame_coords = np.matmul(transf_matx, robot_frame_cords)
+
+                laser_readings_car_orig_x[laser_reading] = origin_map_frame_coords[0][0]
+                laser_readings_car_orig_y[laser_reading] = origin_map_frame_coords[1][0]
+
+                # DEBUG
+
+                # cv2.namedWindow('map', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+                #
+                # img = copy.deepcopy(map_msg_data_reshape).astype(np.uint8)
+                # cv2.circle(img, (int(laser_readings_car_orig_x[laser_reading]/map_res),
+                #                  int(laser_readings_car_orig_y[laser_reading]/map_res)), 1, (100, 100, 100), 1)
+                #
+                # cv2.imshow('map', img)  # show image on window 'win_name' made of numpy.ndarray
+                # cv2.resizeWindow('map', 1600, 900)  # resizing window on my resolution
+                #
+                # cv2.waitKey(0)  # wait for key pressing
+                # cv2.destroyAllWindows()  # close all windows
+
+                # DEBUG END
+
+            else:
+                laser_readings_car_orig_x[laser_reading] = float('inf')
+                laser_readings_car_orig_y[laser_reading] = float('inf')
+
+        laser_readings_car_orig = np.vstack((laser_readings_car_orig_x, laser_readings_car_orig_y))
+
+        # returns laser readings in map (origin) frame
+        return laser_readings_car_orig
 
 
 def main():
@@ -95,13 +141,18 @@ def main():
 
     scan_msg_data = np.asarray(scan_msg[11:371])    # laser readings in polar coordinates (counterclockwise from "x")
 
-    pose_of_robot = {"j": 15, "i": 7}
+    pose_of_robot_pix = {"j": 15, "i": 7}
 
-    yaw_rot_of_robot = 0.785                # yaw rotation angle 0.785 [rad] = 45 [deg]
+    yaw_rot_of_robot = 0                # yaw rotation angle 0.785 [rad] = 45 [deg]
+
+    map_res = 0.15
+
+    pose_of_robot_m = {"x": pose_of_robot_pix["i"]*map_res, "y": pose_of_robot_pix["j"]*map_res}
 
     ffd = FFDdetectorCLass()
 
-    ffd.map_laser_readings(scan_msg_data, pose_of_robot, yaw_rot_of_robot)
+    laser_readings_car_orig = ffd.map_laser_readings(scan_msg_data, map_msg_data_reshape, pose_of_robot_m,
+                                                     yaw_rot_of_robot, map_res)
 
 
 if __name__ == '__main__':
