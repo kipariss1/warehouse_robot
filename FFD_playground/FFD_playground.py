@@ -32,6 +32,10 @@ class FFDdetectorCLass:
 
         # DEBUG
         img = copy.deepcopy(map_msg_data_reshape).astype(np.uint8)
+
+        # change map from grayscale to bgr (map will stay the same, but i can add colours for debug)
+        img_3d = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+
         # END DEBUG
 
         for laser_reading in laser_readings_polar:
@@ -84,19 +88,19 @@ class FFDdetectorCLass:
 
             # DEBUG
 
+            j = int(laser_readings_car_orig_y[laser_reading] / map_res)
+            i = int(laser_readings_car_orig_x[laser_reading] / map_res)
+
             # getting the coordinates of the pixel, corresponding to the scan measurement
-            coords_pix = {"j": int(laser_readings_car_orig_x[laser_reading] / map_res),
-                          "i": int(laser_readings_car_orig_y[laser_reading] / map_res)}
+            coords_pix = {"j": j if j < map_msg_data_reshape.shape[0] - 1 else map_msg_data_reshape.shape[0] - 1,
+                          "i": i if i < map_msg_data_reshape.shape[1] - 1 else map_msg_data_reshape.shape[1] - 1}
 
             cv2.namedWindow('map', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
 
-            # change map from grayscale to bgr (map will stay the same, but i can add colours for debug)
-            img_3d = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+            img_3d[coords_pix["j"], coords_pix["i"], :] = np.array([255, 0, 0])
 
-            img_3d[coords_pix["i"], coords_pix["j"], :] = np.array([255, 0, 0])
-
-            cv2.circle(img_3d, (int(laser_readings_car_orig_x[laser_reading] / map_res),
-                                int(laser_readings_car_orig_y[laser_reading] / map_res)), 1, (255, 0, 0), 1)
+            # cv2.circle(img_3d, (int(laser_readings_car_orig_x[laser_reading] / map_res),
+            #                     int(laser_readings_car_orig_y[laser_reading] / map_res)), 1, (255, 0, 0), 1)
 
             cv2.imshow('map', img_3d)  # show image on window 'win_name' made of numpy.ndarray
             cv2.resizeWindow('map', 1600, 900)  # resizing window on my resolution
