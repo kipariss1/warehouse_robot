@@ -28,7 +28,7 @@ class FFDdetectorCLass:
         # cartesian coordinates
 
         laser_readings_car_y = np.zeros(laser_readings_polar.shape)  # array of laser readings in y
-        # cartesian coordinates
+        # cartesian coordinatesTODO
 
         # DEBUG
         img = copy.deepcopy(map_msg_data_reshape).astype(np.uint8)
@@ -88,25 +88,25 @@ class FFDdetectorCLass:
 
             # DEBUG
 
-            j = int(laser_readings_car_orig_y[laser_reading] / map_res)
-            i = int(laser_readings_car_orig_x[laser_reading] / map_res)
-
-            # getting the coordinates of the pixel, corresponding to the scan measurement
-            coords_pix = {"j": j if j < map_msg_data_reshape.shape[0] - 1 else map_msg_data_reshape.shape[0] - 1,
-                          "i": i if i < map_msg_data_reshape.shape[1] - 1 else map_msg_data_reshape.shape[1] - 1}
-
-            cv2.namedWindow('map', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
-
-            img_3d[coords_pix["j"], coords_pix["i"], :] = np.array([255, 0, 0])
-
-            # cv2.circle(img_3d, (int(laser_readings_car_orig_x[laser_reading] / map_res),
-            #                     int(laser_readings_car_orig_y[laser_reading] / map_res)), 1, (255, 0, 0), 1)
-
-            cv2.imshow('map', img_3d)  # show image on window 'win_name' made of numpy.ndarray
-            cv2.resizeWindow('map', 1600, 900)  # resizing window on my resolution
-
-            cv2.waitKey(0)  # wait for key pressing
-            # cv2.destroyAllWindows()  # close all windows
+            # j = int(laser_readings_car_orig_y[laser_reading] / map_res)
+            # i = int(laser_readings_car_orig_x[laser_reading] / map_res)
+            #
+            # # getting the coordinates of the pixel, corresponding to the scan measurement
+            # coords_pix = {"j": j if j < map_msg_data_reshape.shape[0] - 1 else map_msg_data_reshape.shape[0] - 1,
+            #               "i": i if i < map_msg_data_reshape.shape[1] - 1 else map_msg_data_reshape.shape[1] - 1}
+            #
+            # cv2.namedWindow('map', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+            #
+            # img_3d[coords_pix["j"], coords_pix["i"], :] = np.array([255, 0, 0])
+            #
+            # # cv2.circle(img_3d, (int(laser_readings_car_orig_x[laser_reading] / map_res),
+            # #                     int(laser_readings_car_orig_y[laser_reading] / map_res)), 1, (255, 0, 0), 1)
+            #
+            # cv2.imshow('map', img_3d)  # show image on window 'win_name' made of numpy.ndarray
+            # cv2.resizeWindow('map', 1600, 900)  # resizing window on my resolution
+            #
+            # cv2.waitKey(0)  # wait for key pressing
+            # # cv2.destroyAllWindows()  # close all windows
 
             # DEBUG END
 
@@ -114,6 +114,88 @@ class FFDdetectorCLass:
 
         # returns laser readings in map (origin) frame
         return laser_readings_car_orig
+
+    # function which gets line (all cells in line) from starting point (previous_point) and end point (curr_point)
+    # (based on DDA algorithm)
+    def DDALine(self, curr_point, previous_point, map_msg_data_reshape):
+
+        di = abs(curr_point["i"] - previous_point["i"])
+        dj = abs(curr_point["j"] - previous_point["j"])
+
+        steps = max(di, dj)
+
+        i_inc = float(di/steps)
+        j_inc = float(dj/steps)
+
+        points_list = [previous_point]  # creating list, containing first point in the line, to store the points
+        new_point = {"i": previous_point["i"], "j": previous_point["j"]}
+
+        # DEBUG
+
+        img = copy.deepcopy(map_msg_data_reshape).astype(np.uint8)
+
+        # change map from grayscale to bgr (map will stay the same, but i can add colours for debug)
+        img_3d = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+
+        # END OF DEBUG
+
+        for inc in range(0, steps):
+
+            new_point["i"] += i_inc
+            new_point["j"] += j_inc
+            points_list.append({"i": int(new_point["i"]), "j": int(new_point["j"])})
+
+            # DEBUG
+
+            # i = int(new_point["i"])
+            # j = int(new_point["j"])
+            #
+            # # getting the coordinates of the pixel, corresponding to the scan measurement
+            # coords_pix = {"j": j if j < map_msg_data_reshape.shape[0] - 1 else map_msg_data_reshape.shape[0] - 1,
+            #               "i": i if i < map_msg_data_reshape.shape[1] - 1 else map_msg_data_reshape.shape[1] - 1}
+            #
+            # cv2.namedWindow('map', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+            #
+            # img_3d[coords_pix["j"], coords_pix["i"], :] = np.array([255, 0, 0])
+            #
+            # # cv2.circle(img_3d, (int(laser_readings_car_orig_x[laser_reading] / map_res),
+            # #                     int(laser_readings_car_orig_y[laser_reading] / map_res)), 1, (255, 0, 0), 1)
+            #
+            # cv2.imshow('map', img_3d)  # show image on window 'win_name' made of numpy.ndarray
+            # cv2.resizeWindow('map', 1600, 900)  # resizing window on my resolution
+            #
+            # cv2.waitKey(0)  # wait for key pressing
+            # # cv2.destroyAllWindows()  # close all windows
+
+            # DEBUG END
+
+        return points_list, img_3d
+
+    def get_lines_from_laser_readings(self, laser_readings_car_orig, map_msg_data_reshape, map_res):
+
+        # get the starting point from from first laser reading
+        previous_point = {"i": int(laser_readings_car_orig[:, 0][0]/map_res),
+                          "j": int(laser_readings_car_orig[:, 0][1]/map_res)}
+
+        lines_list = []     # create empty list for lines
+
+        # getting the line
+        for laser_reading in range(1, laser_readings_car_orig.shape[1]):
+
+            curr_point = {"i": int(laser_readings_car_orig[:, laser_reading][0]/map_res),
+                          "j": int(laser_readings_car_orig[:, laser_reading][1]/map_res)}
+
+            if curr_point != previous_point:
+
+                lines_list.append(self.DDALine(curr_point, previous_point, map_msg_data_reshape))
+
+            else:
+
+                lines_list.append([curr_point])     # appending list with single point in it
+
+            previous_point = curr_point
+
+        return lines_list
 
 
 def main():
@@ -162,6 +244,8 @@ def main():
 
     laser_readings_car_orig = ffd.map_laser_readings(scan_msg_data, map_msg_data_reshape, pose_of_robot_m,
                                                      yaw_rot_of_robot, map_res)
+
+    lines_list = ffd.get_lines_from_laser_readings(laser_readings_car_orig, map_msg_data_reshape, map_res)
 
 
 if __name__ == '__main__':
