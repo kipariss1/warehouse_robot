@@ -5,6 +5,25 @@ import copy
 from math import sin, cos, pi
 
 
+# class for storing the frontiers from FFD method
+class FFDfrontier:
+
+    def __init__(self):
+
+        self.list_of_points = []        # intialise empty list of points
+
+    def add_point(self, point):
+
+        self.list_of_points.append(point)
+
+    def delete_all_points(self):
+
+        self.list_of_points = []
+
+    def calculate_centroid(self):
+
+        pass
+
 # Fast Frontier Detection method implemented in the class
 class FFDdetectorCLass:
 
@@ -149,7 +168,6 @@ class FFDdetectorCLass:
 
             # i = int(new_point["i"])
             # j = int(new_point["j"])
-            #
             # # getting the coordinates of the pixel, corresponding to the scan measurement
             # coords_pix = {"j": j if j < map_msg_data_reshape.shape[0] - 1 else map_msg_data_reshape.shape[0] - 1,
             #               "i": i if i < map_msg_data_reshape.shape[1] - 1 else map_msg_data_reshape.shape[1] - 1}
@@ -169,7 +187,7 @@ class FFDdetectorCLass:
 
             # DEBUG END
 
-        return points_list, img_3d
+        return points_list
 
     def get_lines_from_laser_readings(self, laser_readings_car_orig, map_msg_data_reshape, map_res):
 
@@ -196,6 +214,53 @@ class FFDdetectorCLass:
             previous_point = curr_point
 
         return lines_list
+
+    def check_neighbours(self, point, map_msg_data_reshape):
+
+        bounds = 1                      # boundaries for checking the neighbours (if 1 -> checks 3x3 submap)
+
+        submap = map_msg_data_reshape[point["j"] - bounds: point["j"] + bounds + 1,
+                 point["i"] - bounds: point["i"] + bounds + 1]
+
+        unkn_flag = -1 in submap    # flag, indicating, there is unknown cells in the neighbouring cells in the map
+        obst_flag = 100 in submap   # flag, indicating, there is an obstacle in the neighbouring cells in the map
+
+        return unkn_flag, obst_flag
+
+    def find_frontiers_in_lines(self, lines_list, map_msg_data_reshape):
+
+        new_frontier_flag = True    # flag, indicating, that it's time to initialise new frontier
+        frontier_list = []          # empty list to store frontiers
+        new_frontier = FFDfrontier()
+
+        # for cyclus to check all points in all lines to find frontiers
+        for line in lines_list:
+
+            for point in line:
+
+                unkn_flag, obst_flag = self.check_neighbours(point, map_msg_data_reshape)
+
+                if new_frontier_flag and unkn_flag and not obst_flag:
+
+                    # intitialise new frontier and add cell
+                    new_frontier_flag = False
+                    new_frontier.add_point(point)
+
+                if not new_frontier_flag and unkn_flag and not obst_flag:
+
+                    # add cell to existing frontier
+                    new_frontier.add_point(point)
+
+                if not new_frontier_flag and obst_flag:
+
+                    # add finished frontier to the list of frontiers, and send signal
+                    # that it's time to initialise new frontier
+                    frontier_list.append(new_frontier)
+                    new_frontier.delete_all_points()
+                    new_frontier_flag = True
+
+        return frontier_list
+
 
 
 def main():
