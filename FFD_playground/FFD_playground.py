@@ -222,14 +222,13 @@ class FFDdetectorCLass:
         submap = map_msg_data_reshape[point["j"] - bounds: point["j"] + bounds + 1,
                  point["i"] - bounds: point["i"] + bounds + 1]
 
-        unkn_flag = -1 in submap    # flag, indicating, there is unknown cells in the neighbouring cells in the map
-        obst_flag = 100 in submap   # flag, indicating, there is an obstacle in the neighbouring cells in the map
+        unkn_flag = '-1' in submap    # flag, indicating, there is unknown cells in the neighbouring cells in the map
+        obst_flag = '100' in submap   # flag, indicating, there is an obstacle in the neighbouring cells in the map
 
         return unkn_flag, obst_flag
 
     def find_frontiers_in_lines(self, lines_list, map_msg_data_reshape):
 
-        new_frontier_flag = True    # flag, indicating, that it's time to initialise new frontier
         frontier_list = []          # empty list to store frontiers
         new_frontier = FFDfrontier()
 
@@ -240,27 +239,25 @@ class FFDdetectorCLass:
 
                 unkn_flag, obst_flag = self.check_neighbours(point, map_msg_data_reshape)
 
-                if new_frontier_flag and unkn_flag and not obst_flag:
+                if unkn_flag and not obst_flag:
 
-                    # intitialise new frontier and add cell
-                    new_frontier_flag = False
+                    # add cell to frontier object
                     new_frontier.add_point(point)
 
-                if not new_frontier_flag and unkn_flag and not obst_flag:
-
-                    # add cell to existing frontier
-                    new_frontier.add_point(point)
-
-                if not new_frontier_flag and obst_flag:
+                # if the frontier isn't empty
+                if obst_flag and new_frontier.list_of_points:
 
                     # add finished frontier to the list of frontiers, and send signal
-                    # that it's time to initialise new frontier
-                    frontier_list.append(new_frontier)
+                    # that it's time to delete all points from frontier object
+                    frontier_list.append(copy.deepcopy(new_frontier))
                     new_frontier.delete_all_points()
-                    new_frontier_flag = True
 
         return frontier_list
 
+    # main function of this class, using all of the above functions to find the goal and maintain found frontiers
+    def do_ffd(self):
+
+        pass
 
 
 def main():
@@ -311,6 +308,8 @@ def main():
                                                      yaw_rot_of_robot, map_res)
 
     lines_list = ffd.get_lines_from_laser_readings(laser_readings_car_orig, map_msg_data_reshape, map_res)
+
+    frontier_list = ffd.find_frontiers_in_lines(lines_list, map_msg_data_reshape)
 
 
 if __name__ == '__main__':
