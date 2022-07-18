@@ -66,10 +66,11 @@ class FFDdetectorCLass:
         # cartesian coordinatesTODO
 
         # DEBUG
-        # img = copy.deepcopy(self.map_msg_data_reshape).astype(np.uint8)
-        #
-        # # change map from grayscale to bgr (map will stay the same, but i can add colours for debug)
-        # img_3d = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+
+        img = copy.deepcopy(self.map_msg_data_reshape).astype(np.uint8)
+
+        # change map from grayscale to bgr (map will stay the same, but i can add colours for debug)
+        img_3d = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
 
         # END DEBUG
 
@@ -123,22 +124,22 @@ class FFDdetectorCLass:
 
             # DEBUG
 
-            # j = int(laser_readings_car_orig_y[laser_reading] / map_res)
-            # i = int(laser_readings_car_orig_x[laser_reading] / map_res)
-            #
-            # # getting the coordinates of the pixel, corresponding to the scan measurement
-            # coords_pix = {"j": j if j < map_msg_data_reshape.shape[0] - 1 else map_msg_data_reshape.shape[0] - 1,
-            #               "i": i if i < map_msg_data_reshape.shape[1] - 1 else map_msg_data_reshape.shape[1] - 1}
-            #
-            # cv2.namedWindow('map', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
-            #
-            # img_3d[coords_pix["j"], coords_pix["i"], :] = np.array([255, 0, 0])
-            #
-            # cv2.imshow('map', img_3d)  # show image on window 'win_name' made of numpy.ndarray
-            # cv2.resizeWindow('map', 1600, 900)  # resizing window on my resolution
-            #
-            # cv2.waitKey(0)  # wait for key pressing
-            # # cv2.destroyAllWindows()  # close all windows
+            j = int(laser_readings_car_orig_y[laser_reading] / self.map_res)
+            i = int(laser_readings_car_orig_x[laser_reading] / self.map_res)
+
+            # getting the coordinates of the pixel, corresponding to the scan measurement
+            coords_pix = {"j": j if j < self.map_msg_data_reshape.shape[0] - 1 else self.map_msg_data_reshape.shape[0] - 1,
+                          "i": i if i < self.map_msg_data_reshape.shape[1] - 1 else self.map_msg_data_reshape.shape[1] - 1}
+
+            cv2.namedWindow('map laser readings', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+
+            img_3d[coords_pix["j"], coords_pix["i"], :] = np.array([255, 0, 0])
+
+            cv2.imshow('map laser readings', img_3d)  # show image on window 'win_name' made of numpy.ndarray
+            cv2.resizeWindow('map laser readings', 1600, 900)  # resizing window on my resolution
+
+            cv2.waitKey(10)  # wait for key pressing
+            # cv2.destroyAllWindows()  # close all windows
 
             # DEBUG END
 
@@ -164,10 +165,10 @@ class FFDdetectorCLass:
 
         # DEBUG
 
-        # img = copy.deepcopy(self.map_msg_data_reshape).astype(np.uint8)
-        #
-        # # change map from grayscale to bgr (map will stay the same, but i can add colours for debug)
-        # img_3d = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+        img = copy.deepcopy(self.map_msg_data_reshape).astype(np.uint8)
+
+        # change map from grayscale to bgr (map will stay the same, but i can add colours for debug)
+        img_3d = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
 
         # END OF DEBUG
 
@@ -179,21 +180,21 @@ class FFDdetectorCLass:
 
             # DEBUG
 
-            # i = int(new_point["i"])
-            # j = int(new_point["j"])
-            # # getting the coordinates of the pixel, corresponding to the scan measurement
-            # coords_pix = {"j": j if j < map_msg_data_reshape.shape[0] - 1 else map_msg_data_reshape.shape[0] - 1,
-            #               "i": i if i < map_msg_data_reshape.shape[1] - 1 else map_msg_data_reshape.shape[1] - 1}
-            #
-            # cv2.namedWindow('map', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
-            #
-            # img_3d[coords_pix["j"], coords_pix["i"], :] = np.array([255, 0, 0])
-            #
-            # cv2.imshow('map', img_3d)  # show image on window 'win_name' made of numpy.ndarray
-            # cv2.resizeWindow('map', 1600, 900)  # resizing window on my resolution
-            #
-            # cv2.waitKey(0)  # wait for key pressing
-            # # cv2.destroyAllWindows()  # close all windows
+            i = int(new_point["i"])
+            j = int(new_point["j"])
+            # getting the coordinates of the pixel, corresponding to the scan measurement
+            coords_pix = {"j": j if j < self.map_msg_data_reshape.shape[0] - 1 else self.map_msg_data_reshape.shape[0] - 1,
+                          "i": i if i < self.map_msg_data_reshape.shape[1] - 1 else self.map_msg_data_reshape.shape[1] - 1}
+
+            cv2.namedWindow('Drawing line', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+
+            img_3d[coords_pix["j"], coords_pix["i"], :] = np.array([0, 0, 255])
+
+            cv2.imshow('Drawing line', img_3d)  # show image on window 'win_name' made of numpy.ndarray
+            cv2.resizeWindow('Drawing line', 1600, 900)  # resizing window on my resolution
+
+            cv2.waitKey(10)  # wait for key pressing
+            # cv2.destroyAllWindows()  # close all windows
 
             # DEBUG END
 
@@ -243,12 +244,12 @@ class FFDdetectorCLass:
         new_frontier = FFDfrontier()
 
         # DEBUG
-        #
-        # img = copy.deepcopy(self.map_msg_data_reshape).astype(np.uint8)
-        #
-        # # change map from grayscale to bgr (map will stay the same, but i can add colours for debug)
-        # img_3d = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
-        #
+
+        img = copy.deepcopy(self.map_msg_data_reshape).astype(np.uint8)
+
+        # change map from grayscale to bgr (map will stay the same, but i can add colours for debug)
+        img_3d = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+
         # END OF DEBUG
 
         # for cyclus to check all points in all lines to find frontiers
@@ -263,25 +264,25 @@ class FFDdetectorCLass:
                     # add cell to frontier object
                     new_frontier.add_point(point)
 
-                    # # DEBUG
-                    #
-                    # i = int(point["i"])
-                    # j = int(point["j"])
-                    # # getting the coordinates of the pixel, corresponding to the scan measurement
-                    # coords_pix = {"j": j if j < self.map_msg_data_reshape.shape[0] - 1 else self.map_msg_data_reshape.shape[0] - 1,
-                    #               "i": i if i < self.map_msg_data_reshape.shape[1] - 1 else self.map_msg_data_reshape.shape[1] - 1}
-                    #
-                    # cv2.namedWindow('map', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
-                    #
-                    # img_3d[coords_pix["j"], coords_pix["i"], :] = np.array([255, 0, 0])
-                    #
-                    # cv2.imshow('map', img_3d)  # show image on window 'win_name' made of numpy.ndarray
-                    # cv2.resizeWindow('map', 1600, 900)  # resizing window on my resolution
-                    #
-                    # cv2.waitKey(0)  # wait for key pressing
-                    # # cv2.destroyAllWindows()  # close all windows
-                    #
-                    # # DEBUG END
+                    # DEBUG
+
+                    i = int(point["i"])
+                    j = int(point["j"])
+                    # getting the coordinates of the pixel, corresponding to the scan measurement
+                    coords_pix = {"j": j if j < self.map_msg_data_reshape.shape[0] - 1 else self.map_msg_data_reshape.shape[0] - 1,
+                                  "i": i if i < self.map_msg_data_reshape.shape[1] - 1 else self.map_msg_data_reshape.shape[1] - 1}
+
+                    cv2.namedWindow('finding frontiers', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+
+                    img_3d[coords_pix["j"], coords_pix["i"], :] = np.array([0, 0, 255])
+
+                    cv2.imshow('finding frontiers', img_3d)  # show image on window 'win_name' made of numpy.ndarray
+                    cv2.resizeWindow('finding frontiers', 1600, 900)  # resizing window on my resolution
+
+                    cv2.waitKey(10)  # wait for key pressing
+                    # cv2.destroyAllWindows()  # close all windows
+
+                    # DEBUG END
 
                 # if the frontier isn't empty
                 if obst_flag and new_frontier.list_of_points:
@@ -326,13 +327,38 @@ class FFDdetectorCLass:
 
             goal = self.frontier_list[self.frontier_idx].centroid
             self.frontier_idx += 1
-            return goal
 
         else:
 
             self.frontier_idx = 1  # zeroing the counter
             goal = self.frontier_list[0].centroid
-            return goal
+
+        # DEBUG
+
+        img = copy.deepcopy(self.map_msg_data_reshape).astype(np.uint8)
+
+        # change map from grayscale to bgr (map will stay the same, but i can add colours for debug)
+        img_3d = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+
+        i = int(goal["i"])
+        j = int(goal["j"])
+        # getting the coordinates of the pixel, corresponding to the scan measurement
+        coords_pix = {"j": j if j < self.map_msg_data_reshape.shape[0] - 1 else self.map_msg_data_reshape.shape[0] - 1,
+                      "i": i if i < self.map_msg_data_reshape.shape[1] - 1 else self.map_msg_data_reshape.shape[1] - 1}
+
+        cv2.namedWindow('Goal', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+
+        img_3d[coords_pix["j"], coords_pix["i"], :] = np.array([0, 255, 0])
+
+        cv2.imshow('Goal', img_3d)  # show image on window 'win_name' made of numpy.ndarray
+        cv2.resizeWindow('Goal', 1600, 900)  # resizing window on my resolution
+
+        cv2.waitKey(1000)  # wait for key pressing
+        # cv2.destroyAllWindows()  # close all windows
+
+        # DEBUG END
+
+        return goal
 
 
 def main():
@@ -359,12 +385,12 @@ def main():
 
     # DEBUG
 
-    # cv2.namedWindow('map', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
-    # cv2.imshow('map', copy.deepcopy(map_msg_data_reshape).astype(np.uint8))  # show image on window 'win_name' made of numpy.ndarray
-    # cv2.resizeWindow('map', 1600, 900)  # resizing window on my resolution
-    #
-    # cv2.waitKey(0)  # wait for key pressing
-    # cv2.destroyAllWindows()  # close all windows
+    cv2.namedWindow('map', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+    cv2.imshow('map', copy.deepcopy(map_msg_data_reshape).astype(np.uint8))  # show image on window 'win_name' made of numpy.ndarray
+    cv2.resizeWindow('map', 1600, 900)  # resizing window on my resolution
+
+    cv2.waitKey(1000)  # wait for key pressing
+    cv2.destroyAllWindows()  # close all windows
 
     # DEBUG END
 
