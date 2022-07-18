@@ -10,7 +10,9 @@ class FFDfrontier:
 
     def __init__(self):
 
-        self.list_of_points = []        # intialise empty list of points
+        self.list_of_points = []        # intialise empty list of points ( point is {"i": xx, "j": xx})
+
+        self.centroid = {"i": None, "j": None}      # initialise centroid attribute
 
     def add_point(self, point):
 
@@ -22,7 +24,19 @@ class FFDfrontier:
 
     def calculate_centroid(self):
 
-        pass
+        sum_coord_i = 0
+        sum_coord_j = 0
+
+        for point in self.list_of_points:
+
+            sum_coord_i += point["i"]
+            sum_coord_j += point["j"]
+
+        sum_coord_i = int(sum_coord_i/self.list_of_points.__len__())     # get mean i coordinates of frontier
+        sum_coord_j = int(sum_coord_j/self.list_of_points.__len__())     # get mean j coordinates of frontier
+
+        self.centroid = {"i": sum_coord_i, "j": sum_coord_j}
+
 
 # Fast Frontier Detection method implemented in the class
 class FFDdetectorCLass:
@@ -37,6 +51,7 @@ class FFDdetectorCLass:
         self.yaw_rot_of_robot = None                                # robot's rotation
         self.lines_list = []                                        # list of lines between scan points
         self.frontier_list = []                                     # list of frontiers
+        self.frontier_idx = 1                                       # the index of frontier to go to (idx of goal front)
 
     def map_laser_readings(self, laser_readings_polar: np.ndarray):
 
@@ -279,7 +294,7 @@ class FFDdetectorCLass:
         return frontier_list
 
     # main function of this class, using all of the above functions to find the goal and maintain found frontiers
-    def do_ffd(self, pos_of_robot, yaw_rot_of_robot, laser_readings_polar, map_msg_data_reshape, map_res):
+    def do_ffd(self, pos_of_robot, yaw_rot_of_robot, laser_readings_polar, map_msg_data_reshape, previous_map, map_res):
 
         # Getting actual data about robot's position and rotation
         self.pos_of_robot = pos_of_robot
@@ -301,12 +316,23 @@ class FFDdetectorCLass:
         # Finding frontiers in lines
         self.frontier_list = self.find_frontiers_in_lines(self.lines_list)
 
-        # TODO: Finding the centroids from all frontiers
+        # Finding the centroids from all frontiers
+        for frontier in self.frontier_list:
 
-        # TODO: Implement returning list of frontier centroids
-        return None
+            frontier.calculate_centroid()   # calculating centroid for each frontier
 
+        # Going to new frontier if map changed, Else going to old frontiers
+        if np.all(map_msg_data_reshape == previous_map):
 
+            goal = self.frontier_list[self.frontier_idx].centroid
+            self.frontier_idx += 1
+            return goal
+
+        else:
+
+            self.frontier_idx = 1  # zeroing the counter
+            goal = self.frontier_list[0].centroid
+            return goal
 
 
 def main():
@@ -327,6 +353,9 @@ def main():
     map_msg_data = np.asarray(map_msg[15:])  # one sample of raw map
     map_msg_data_reshape = map_msg_data.reshape((map_shape["h"],
                                                  map_shape["w"]))
+
+    previous_map_msg_data_reshape = copy.deepcopy(map_msg_data_reshape)     # "previous" map
+    previous_map_msg_data_reshape[0][0] = 100                               # changing "previous" map
 
     # DEBUG
 
@@ -354,7 +383,8 @@ def main():
     # MAIN PART
     ffd = FFDdetectorCLass()
 
-    ffd.do_ffd(pose_of_robot_m, yaw_rot_of_robot, scan_msg_data, map_msg_data_reshape, map_res)
+    goal_coords = ffd.do_ffd(pose_of_robot_m, yaw_rot_of_robot, scan_msg_data, map_msg_data_reshape, previous_map_msg_data_reshape,
+               map_res)
 
 
 if __name__ == '__main__':
