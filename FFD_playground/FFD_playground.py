@@ -193,7 +193,15 @@ class FFDdetectorCLass:
             cv2.imshow('Drawing line', img_3d)  # show image on window 'win_name' made of numpy.ndarray
             cv2.resizeWindow('Drawing line', 1600, 900)  # resizing window on my resolution
 
-            cv2.waitKey(10)  # wait for key pressing
+            # if big line is drawn - hold a picture a little bit longer
+            if inc == steps-1 and steps > 1:
+
+                cv2.waitKey(1000)  # wait for key pressing
+
+            else:
+
+                cv2.waitKey(10)  # wait for key pressing
+
             # cv2.destroyAllWindows()  # close all windows
 
             # DEBUG END
