@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd  # for saving the map to csv
 import actionlib  # lib for placing the goal and robot autonomously navigating there
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
+from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Transform, TransformStamped, Vector3, Quaternion, Pose, Point
 import tf2_ros  # lib for translating and rotating the frames
 from random import randint
@@ -336,12 +337,370 @@ class DFDdetectorClass:
         return goal_coords_m
 
 
+# class for storing the frontiers from FFD method
+class FFDfrontier:
+
+    def __init__(self):
+
+        self.list_of_points = []        # intialise empty list of points ( point is {"i": xx, "j": xx})
+
+        self.centroid = {"i": None, "j": None}      # initialise centroid attribute
+
+    def add_point(self, point):
+
+        self.list_of_points.append(point)
+
+    def delete_all_points(self):
+
+        self.list_of_points = []
+
+    def calculate_centroid(self):
+
+        sum_coord_i = 0
+        sum_coord_j = 0
+
+        for point in self.list_of_points:
+
+            sum_coord_i += point["i"]
+            sum_coord_j += point["j"]
+
+        sum_coord_i = int(sum_coord_i/self.list_of_points.__len__())     # get mean i coordinates of frontier
+        sum_coord_j = int(sum_coord_j/self.list_of_points.__len__())     # get mean j coordinates of frontier
+
+        self.centroid = {"i": sum_coord_i, "j": sum_coord_j}
+
+
 # Fast Frontier Detection method implemented in the class
 class FFDdetectorCLass:
 
     def __init__(self):
 
-        pass
+        self.laser_readings_polar = None                            # scan readings in polar coordinates
+        self.laser_readings_car_orig = None                         # scan readings in cartesian map frame
+        self.map_msg_data_reshape = None                            # map
+        self.map_res = None                                         # map resolution
+        self.pos_of_robot = {"x": None, "y": None}                  # position of robot
+        self.yaw_rot_of_robot = None                                # robot's rotation
+        self.lines_list = []                                        # list of lines between scan points
+        self.frontier_list = []                                     # list of frontiers
+        self.frontier_idx = 1                                       # the index of frontier to go to (idx of goal front)
+
+    def map_laser_readings(self, laser_readings_polar: np.ndarray):
+
+        # Convert from polar coordinates to cartesian coordinates
+
+        angle_of_reading = 0  # 360 laser readings in every message, each laser reading - int angle [0, 359]
+
+        laser_readings_car_x = np.zeros(laser_readings_polar.shape)  # array of laser readings in x
+        # cartesian coordinates
+
+        laser_readings_car_y = np.zeros(laser_readings_polar.shape)  # array of laser readings in y
+        # cartesian coordinatesTODO
+
+        # DEBUG
+
+        img = copy.deepcopy(self.map_msg_data_reshape).astype(np.uint8)
+
+        # change map from grayscale to bgr (map will stay the same, but i can add colours for debug)
+        img_3d = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+
+        # END DEBUG
+
+        for laser_reading in laser_readings_polar:
+
+            if laser_reading != 'inf':
+
+                laser_readings_car_x[angle_of_reading] = float(laser_reading) * cos(angle_of_reading / 180 * pi)
+
+                laser_readings_car_y[angle_of_reading] = float(laser_reading) * sin(angle_of_reading / 180 * pi)
+
+            else:
+
+                laser_readings_car_x[angle_of_reading] = 0
+
+                laser_readings_car_y[angle_of_reading] = 0
+
+            angle_of_reading += 1  # increasing angle for next laser reading
+
+        laser_readings_car = np.vstack((laser_readings_car_x, laser_readings_car_y))
+
+        # Transform /scan from robot's coordinate system to map (origin) coordinate system
+
+        curr_laser_reading = {"x": None, "y": None}
+
+        laser_readings_car_orig_x = np.zeros(laser_readings_polar.shape)  # array of laser readings in x
+        # origin cartesian coordinates
+
+        laser_readings_car_orig_y = np.zeros(laser_readings_polar.shape)  # array of laser readings in y
+        # origin cartesian coordinates
+
+        for laser_reading in range(0, laser_readings_car.shape[1] - 1):
+
+            # getting x,y coordinates in robot's coordinate system
+            curr_laser_reading["x"] = laser_readings_car[:, laser_reading][0]
+            curr_laser_reading["y"] = laser_readings_car[:, laser_reading][1]
+
+            robot_frame_cords = np.array([[curr_laser_reading["x"]], [curr_laser_reading["y"]], [1]])
+
+            # setting up the transformation matrix for transforming from robot's frame to the map (origin) frame
+            transf_matx = np.array([[cos(self.yaw_rot_of_robot), -sin(self.yaw_rot_of_robot), self.pos_of_robot["x"]],
+                                    [sin(self.yaw_rot_of_robot), cos(self.yaw_rot_of_robot), self.pos_of_robot["y"]],
+                                    [0, 0, 1]])
+
+            # getting new coords in map (origin) frame:
+
+            origin_map_frame_coords = np.matmul(transf_matx, robot_frame_cords)
+
+            laser_readings_car_orig_x[laser_reading] = origin_map_frame_coords[0][0]
+            laser_readings_car_orig_y[laser_reading] = origin_map_frame_coords[1][0]
+
+            # DEBUG
+
+            j = int(laser_readings_car_orig_y[laser_reading] / self.map_res)
+            i = int(laser_readings_car_orig_x[laser_reading] / self.map_res)
+
+            # getting the coordinates of the pixel, corresponding to the scan measurement
+            coords_pix = {"j": j if j < self.map_msg_data_reshape.shape[0] - 1 else self.map_msg_data_reshape.shape[0] - 1,
+                          "i": i if i < self.map_msg_data_reshape.shape[1] - 1 else self.map_msg_data_reshape.shape[1] - 1}
+
+            cv2.namedWindow('map laser readings', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+
+            img_3d[coords_pix["j"], coords_pix["i"], :] = np.array([255, 0, 0])
+
+            cv2.imshow('map laser readings', img_3d)  # show image on window 'win_name' made of numpy.ndarray
+            cv2.resizeWindow('map laser readings', 1600, 900)  # resizing window on my resolution
+
+            cv2.waitKey(10)  # wait for key pressing
+            # cv2.destroyAllWindows()  # close all windows
+
+            # DEBUG END
+
+        laser_readings_car_orig = np.vstack((laser_readings_car_orig_x, laser_readings_car_orig_y))
+
+        # returns laser readings in map (origin) frame
+        return laser_readings_car_orig
+
+    # function which gets line (all cells in line) from starting point (previous_point) and end point (curr_point)
+    # (based on DDA algorithm)
+    def DDALine(self, curr_point, previous_point):
+
+        di = abs(curr_point["i"] - previous_point["i"])
+        dj = abs(curr_point["j"] - previous_point["j"])
+
+        steps = max(di, dj)
+
+        i_inc = float(di/steps)
+        j_inc = float(dj/steps)
+
+        points_list = [previous_point]  # creating list, containing first point in the line, to store the points
+        new_point = {"i": previous_point["i"], "j": previous_point["j"]}
+
+        # DEBUG
+
+        img = copy.deepcopy(self.map_msg_data_reshape).astype(np.uint8)
+
+        # change map from grayscale to bgr (map will stay the same, but i can add colours for debug)
+        img_3d = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+
+        # END OF DEBUG
+
+        for inc in range(0, steps):
+
+            new_point["i"] += i_inc
+            new_point["j"] += j_inc
+            points_list.append({"i": int(new_point["i"]), "j": int(new_point["j"])})
+
+            # DEBUG
+
+            i = int(new_point["i"])
+            j = int(new_point["j"])
+            # getting the coordinates of the pixel, corresponding to the scan measurement
+            coords_pix = {"j": j if j < self.map_msg_data_reshape.shape[0] - 1 else self.map_msg_data_reshape.shape[0] - 1,
+                          "i": i if i < self.map_msg_data_reshape.shape[1] - 1 else self.map_msg_data_reshape.shape[1] - 1}
+
+            cv2.namedWindow('Drawing line', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+
+            img_3d[coords_pix["j"], coords_pix["i"], :] = np.array([0, 0, 255])
+
+            cv2.imshow('Drawing line', img_3d)  # show image on window 'win_name' made of numpy.ndarray
+            cv2.resizeWindow('Drawing line', 1600, 900)  # resizing window on my resolution
+
+            # if big line is drawn - hold a picture a little bit longer
+            if inc == steps-1 and steps > 1:
+
+                cv2.waitKey(1000)  # wait for key pressing
+
+            else:
+
+                cv2.waitKey(10)  # wait for key pressing
+
+            # cv2.destroyAllWindows()  # close all windows
+
+            # DEBUG END
+
+        return points_list
+
+    def get_lines_from_laser_readings(self, laser_readings_car_orig):
+
+        # get the starting point from from first laser reading
+        previous_point = {"i": int(laser_readings_car_orig[:, 0][0]/self.map_res),
+                          "j": int(laser_readings_car_orig[:, 0][1]/self.map_res)}
+
+        lines_list = []     # create empty list for lines
+
+        # getting the line
+        for laser_reading in range(1, laser_readings_car_orig.shape[1]):
+
+            curr_point = {"i": int(laser_readings_car_orig[:, laser_reading][0]/self.map_res),
+                          "j": int(laser_readings_car_orig[:, laser_reading][1]/self.map_res)}
+
+            if curr_point != previous_point:
+
+                lines_list.append(self.DDALine(curr_point, previous_point))
+
+            else:
+
+                lines_list.append([curr_point])     # appending list with single point in it
+
+            previous_point = curr_point
+
+        return lines_list
+
+    def check_neighbours(self, point):
+
+        bounds = 1                      # boundaries for checking the neighbours (if 1 -> checks 3x3 submap)
+
+        submap = self.map_msg_data_reshape[point["j"] - bounds: point["j"] + bounds + 1,
+                 point["i"] - bounds: point["i"] + bounds + 1]
+
+        unkn_flag = '-1' in submap    # flag, indicating, there is unknown cells in the neighbouring cells in the map
+        obst_flag = '100' in submap   # flag, indicating, there is an obstacle in the neighbouring cells in the map
+
+        return unkn_flag, obst_flag
+
+    def find_frontiers_in_lines(self, lines_list):
+
+        frontier_list = []          # empty list to store frontiers
+        new_frontier = FFDfrontier()
+
+        # DEBUG
+
+        img = copy.deepcopy(self.map_msg_data_reshape).astype(np.uint8)
+
+        # change map from grayscale to bgr (map will stay the same, but i can add colours for debug)
+        img_3d = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+
+        # END OF DEBUG
+
+        # for cyclus to check all points in all lines to find frontiers
+        for line in lines_list:
+
+            for point in line:
+
+                unkn_flag, obst_flag = self.check_neighbours(point)
+
+                if unkn_flag and not obst_flag:
+
+                    # add cell to frontier object
+                    new_frontier.add_point(point)
+
+                    # DEBUG
+
+                    i = int(point["i"])
+                    j = int(point["j"])
+                    # getting the coordinates of the pixel, corresponding to the scan measurement
+                    coords_pix = {"j": j if j < self.map_msg_data_reshape.shape[0] - 1 else self.map_msg_data_reshape.shape[0] - 1,
+                                  "i": i if i < self.map_msg_data_reshape.shape[1] - 1 else self.map_msg_data_reshape.shape[1] - 1}
+
+                    cv2.namedWindow('finding frontiers', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+
+                    img_3d[coords_pix["j"], coords_pix["i"], :] = np.array([0, 0, 255])
+
+                    cv2.imshow('finding frontiers', img_3d)  # show image on window 'win_name' made of numpy.ndarray
+                    cv2.resizeWindow('finding frontiers', 1600, 900)  # resizing window on my resolution
+
+                    cv2.waitKey(10)  # wait for key pressing
+                    # cv2.destroyAllWindows()  # close all windows
+
+                    # DEBUG END
+
+                # if the frontier isn't empty
+                if obst_flag and new_frontier.list_of_points:
+
+                    # add finished frontier to the list of frontiers, and send signal
+                    # that it's time to delete all points from frontier object
+                    frontier_list.append(copy.deepcopy(new_frontier))
+                    new_frontier.delete_all_points()
+
+        return frontier_list
+
+    # main function of this class, using all of the above functions to find the goal and maintain found frontiers
+    def do_ffd(self, pos_of_robot, yaw_rot_of_robot, laser_readings_polar, map_msg_data_reshape, previous_map, map_res):
+
+        # Getting actual data about robot's position and rotation
+        self.pos_of_robot = pos_of_robot
+        self.yaw_rot_of_robot = yaw_rot_of_robot
+
+        # Getting actual map
+        self.map_msg_data_reshape = map_msg_data_reshape
+        self.map_res = map_res
+
+        # Getting actual laser readings
+        self.laser_readings_polar = laser_readings_polar
+
+        # Maping laser readings to map
+        self.laser_readings_car_orig = self.map_laser_readings(self.laser_readings_polar)
+
+        # Getting lines between separate scan readings
+        self.lines_list = self.get_lines_from_laser_readings(self.laser_readings_car_orig)
+
+        # Finding frontiers in lines
+        self.frontier_list = self.find_frontiers_in_lines(self.lines_list)
+
+        # Finding the centroids from all frontiers
+        for frontier in self.frontier_list:
+
+            frontier.calculate_centroid()   # calculating centroid for each frontier
+
+        # Going to new frontier if map changed, Else going to old frontiers
+        if np.all(map_msg_data_reshape == previous_map):
+
+            goal = {"x": self.frontier_list[self.frontier_idx].centroid["i"]*self.map_res,
+                    "y": self.frontier_list[self.frontier_idx].centroid["j"]*self.map_res}
+            self.frontier_idx += 1
+
+        else:
+
+            self.frontier_idx = 1  # zeroing the counter
+            goal = {"x": self.frontier_list[0].centroid["i"] * self.map_res,
+                    "y": self.frontier_list[0].centroid["j"] * self.map_res}
+
+        # DEBUG
+
+        img = copy.deepcopy(self.map_msg_data_reshape).astype(np.uint8)
+
+        # change map from grayscale to bgr (map will stay the same, but i can add colours for debug)
+        img_3d = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+
+        i = int(goal["i"])
+        j = int(goal["j"])
+        # getting the coordinates of the pixel, corresponding to the scan measurement
+        coords_pix = {"j": j if j < self.map_msg_data_reshape.shape[0] - 1 else self.map_msg_data_reshape.shape[0] - 1,
+                      "i": i if i < self.map_msg_data_reshape.shape[1] - 1 else self.map_msg_data_reshape.shape[1] - 1}
+
+        cv2.namedWindow('Goal', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+
+        img_3d[coords_pix["j"], coords_pix["i"], :] = np.array([0, 255, 0])
+
+        cv2.imshow('Goal', img_3d)  # show image on window 'win_name' made of numpy.ndarray
+        cv2.resizeWindow('Goal', 1600, 900)  # resizing window on my resolution
+
+        cv2.waitKey(1000)  # wait for key pressing
+        # cv2.destroyAllWindows()  # close all windows
+
+        # DEBUG END
+
+        return goal
 
 
 class TurtleBotSlamExplorer:
@@ -568,6 +927,10 @@ class TurtleBotSlamExplorer:
                 if self.frontier_detection_method == "DFD":
                     # args: min frontier size is 0.2 [m^2], 0.9 - lower percentage cutoff is 90 [%]
                     frontier_detector = DFDdetectorClass(0.05, 0.9)       # init frontier detector class
+
+                elif self.frontier_detection_method == "FFD":
+                    frontier_detector = FFDdetectorCLass()                  # init frontier detector class
+
                 raw_map = rospy.wait_for_message('/map', OccupancyGrid)  # get map with metadata
                 raw_map_data_numpy = np.asarray(raw_map.data)  # 1d map -> np.ndarray
                 previous_map_reshape = raw_map_data_numpy.reshape((raw_map.info.height,  # reshaping 1d np.ndarray
@@ -598,13 +961,16 @@ class TurtleBotSlamExplorer:
                 # get raw map resolution [m/cell]
                 raw_map_resolution = raw_map.info.resolution
 
-                # (!) FRONTIER DETECTION PART
+                # FETCHING SCAN DATA #
+
+                scan_data = rospy.wait_for_message('/scan', LaserScan)
+                print("(!!!) This is the type of Laser Scan data", type(scan_data.ranges[0]))
 
                 # get pose of robot in [pixels] and [m]
                 pose_of_robot_pix, pose_of_robot_m = self.get_pose_of_robot(raw_map_origin_pos, raw_map_resolution)
 
-                # DEBUG
-
+                ## DEBUG
+                #
                 # self.add_new_transformed_frame("lower left corner", "fetched robot position",
                 #                                # x coordinates in [m] of cell(0,0) on the /map frame
                 #                                {"x": pose_of_robot_m["x"],
@@ -612,8 +978,10 @@ class TurtleBotSlamExplorer:
                 #                                 "y": pose_of_robot_m["y"],
                 #                                 "z": 0},
                 #                                {"x": 0, "y": 0, "z": 0, "w": 1})
+                #
+                ## END OF DEBUG
 
-                # END OF DEBUG
+                # (!) FRONTIER DETECTION PART
 
                 if self.frontier_detection_method == "DFD":
 
@@ -627,7 +995,12 @@ class TurtleBotSlamExplorer:
 
                 if self.frontier_detection_method == "FFD":
 
-                    pass
+                    goal_coords = frontier_detector.do_ffd(pose_of_robot_m,
+                                                           None,                    # yaw of robot
+                                                           None,                    # raw scan data
+                                                           raw_map_data_numpy_reshape,
+                                                           previous_map_reshape,
+                                                           raw_map.info.resolution)
 
                 previous_map_reshape = raw_map_data_numpy_reshape
 
@@ -706,6 +1079,7 @@ def main():
     # FFD - Fast Frontier Detection
     # WFD - Wavefront Frontier Detection
     slam_explorer = TurtleBotSlamExplorer("DFD")
+    # slam_explorer = TurtleBotSlamExplorer("FFD")
     slam_explorer.explore()
 
 
