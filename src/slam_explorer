@@ -12,7 +12,7 @@ from geometry_msgs.msg import Transform, TransformStamped, Vector3, Quaternion, 
 import tf2_ros  # lib for translating and rotating the frames
 from random import randint
 import copy
-from math import sqrt, sin, cos, pi
+from math import sqrt, sin, cos, pi, atan2, asin
 import skimage
 import cv2
 from visualization_msgs.msg import Marker  # for custom markers in RViz
@@ -912,6 +912,46 @@ class TurtleBotSlamExplorer:
 
         return x_or_pix, x_or_m
 
+    def get_yaw_rot_of_robot(self):
+
+        """
+
+        This is not my code!
+        Source: https://automaticaddison.com/how-to-convert-a-quaternion-into-euler-angles-in-python/
+
+        """
+
+        """
+        
+        Convert a quaternion into euler angles (roll, pitch, yaw)
+        roll is rotation around x in radians (counterclockwise)
+        pitch is rotation around y in radians (counterclockwise)
+        yaw is rotation around z in radians (counterclockwise)
+        
+        """
+
+        raw_odom_message = rospy.wait_for_message('/odom', Odometry)
+
+        x = raw_odom_message.pose.pose.orientation.x
+        y = raw_odom_message.pose.pose.orientation.y
+        z = raw_odom_message.pose.pose.orientation.z
+        w = raw_odom_message.pose.pose.orientation.w
+
+        t0 = +2.0 * (w * x + y * z)
+        t1 = +1.0 - 2.0 * (x * x + y * y)
+        roll_x = atan2(t0, t1)
+
+        t2 = +2.0 * (w * y - z * x)
+        t2 = +1.0 if t2 > +1.0 else t2
+        t2 = -1.0 if t2 < -1.0 else t2
+        pitch_y = asin(t2)
+
+        t3 = +2.0 * (w * z + x * y)
+        t4 = +1.0 - 2.0 * (y * y + z * z)
+        yaw_z = atan2(t3, t4)
+
+        return roll_x, pitch_y, yaw_z  # in radians
+
     # THIS IS MAIN FUNCTION OF CLASS, IT IMPLEMENTS AUTONOMOUS EXPLORATION
     def explore(self):
 
@@ -994,6 +1034,15 @@ class TurtleBotSlamExplorer:
                 #
                 # # END OF DEBUG
 
+                # get yaw rot of robot in [rad]:
+
+                _, _, yaw_z = self.get_yaw_rot_of_robot()
+
+                # # DEBUG
+                # print("(***) Those are robot angles: \n-roll_x = %f \n-pitch_y = %f \n-yaw_z = %f"
+                #       %(roll_x, pitch_y, yaw_z))
+                # # END OF DEBUG
+
                 # (!) FRONTIER DETECTION PART
 
                 if self.frontier_detection_method == "DFD":
@@ -1009,7 +1058,7 @@ class TurtleBotSlamExplorer:
                 if self.frontier_detection_method == "FFD":
 
                     goal_coords = frontier_detector.do_ffd(pose_of_robot_m,
-                                                           None,                    # yaw of robot
+                                                           yaw_z,                   # yaw of robot
                                                            scan_data,               # raw scan data
                                                            raw_map_data_numpy_reshape,
                                                            previous_map_reshape,
@@ -1091,8 +1140,8 @@ def main():
     # DFD - Yamauchi Frontier Detection (YFD)
     # FFD - Fast Frontier Detection
     # WFD - Wavefront Frontier Detection
-    slam_explorer = TurtleBotSlamExplorer("DFD")
-    # slam_explorer = TurtleBotSlamExplorer("FFD")
+    # slam_explorer = TurtleBotSlamExplorer("DFD")
+    slam_explorer = TurtleBotSlamExplorer("FFD")
     slam_explorer.explore()
 
 
