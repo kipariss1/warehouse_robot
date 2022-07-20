@@ -12,7 +12,7 @@ from geometry_msgs.msg import Transform, TransformStamped, Vector3, Quaternion, 
 import tf2_ros  # lib for translating and rotating the frames
 from random import randint
 import copy
-from math import sqrt
+from math import sqrt, sin, cos, pi
 import skimage
 import cv2
 from visualization_msgs.msg import Marker  # for custom markers in RViz
@@ -395,7 +395,7 @@ class FFDdetectorCLass:
         # cartesian coordinates
 
         laser_readings_car_y = np.zeros(laser_readings_polar.shape)  # array of laser readings in y
-        # cartesian coordinatesTODO
+        # cartesian coordinates
 
         # DEBUG
 
@@ -408,7 +408,7 @@ class FFDdetectorCLass:
 
         for laser_reading in laser_readings_polar:
 
-            if laser_reading != 'inf':
+            if laser_reading != float('inf'):
 
                 laser_readings_car_x[angle_of_reading] = float(laser_reading) * cos(angle_of_reading / 180 * pi)
 
@@ -573,8 +573,8 @@ class FFDdetectorCLass:
         submap = self.map_msg_data_reshape[point["j"] - bounds: point["j"] + bounds + 1,
                  point["i"] - bounds: point["i"] + bounds + 1]
 
-        unkn_flag = '-1' in submap    # flag, indicating, there is unknown cells in the neighbouring cells in the map
-        obst_flag = '100' in submap   # flag, indicating, there is an obstacle in the neighbouring cells in the map
+        unkn_flag = -1 in submap    # flag, indicating, there is unknown cells in the neighbouring cells in the map
+        obst_flag = 100 in submap   # flag, indicating, there is an obstacle in the neighbouring cells in the map
 
         return unkn_flag, obst_flag
 
@@ -963,13 +963,26 @@ class TurtleBotSlamExplorer:
 
                 # FETCHING SCAN DATA #
 
-                scan_data = rospy.wait_for_message('/scan', LaserScan)
-                print("(!!!) This is the type of Laser Scan data", type(scan_data.ranges[0]))
+                scan_msg = rospy.wait_for_message('/scan', LaserScan)
+
+                # # DEBUG
+                # print("(!!!) This is the type of Laser Scan data", type(scan_msg.ranges))
+                # print("(!!!) This is Laser Scan data", type(scan_msg.ranges[0]))
+                # # DEBUG END
+
+                scan_data = np.array(scan_msg.ranges)
+
+                # # DEBUG
+                # print("(!!!!) This is the type of Laser Scan data NumPy", type(scan_data))
+                # print("(!!!!) This is Laser Scan data NumPy", type(scan_data[0]))
+                # print("(!!!!) Is inf python float?", scan_data[0] == float('Inf'))
+                # print("(!!!!) This is shape of Laser Scan data", scan_data.shape)
+                # # DEBUG END
 
                 # get pose of robot in [pixels] and [m]
                 pose_of_robot_pix, pose_of_robot_m = self.get_pose_of_robot(raw_map_origin_pos, raw_map_resolution)
 
-                ## DEBUG
+                # # DEBUG
                 #
                 # self.add_new_transformed_frame("lower left corner", "fetched robot position",
                 #                                # x coordinates in [m] of cell(0,0) on the /map frame
@@ -979,7 +992,7 @@ class TurtleBotSlamExplorer:
                 #                                 "z": 0},
                 #                                {"x": 0, "y": 0, "z": 0, "w": 1})
                 #
-                ## END OF DEBUG
+                # # END OF DEBUG
 
                 # (!) FRONTIER DETECTION PART
 
@@ -997,7 +1010,7 @@ class TurtleBotSlamExplorer:
 
                     goal_coords = frontier_detector.do_ffd(pose_of_robot_m,
                                                            None,                    # yaw of robot
-                                                           None,                    # raw scan data
+                                                           scan_data,               # raw scan data
                                                            raw_map_data_numpy_reshape,
                                                            previous_map_reshape,
                                                            raw_map.info.resolution)
