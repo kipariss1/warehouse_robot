@@ -373,7 +373,7 @@ class FFDfrontier:
 # Fast Frontier Detection method implemented in the class
 class FFDdetectorCLass:
 
-    def __init__(self):
+    def __init__(self, debug_flag=False):
 
         self.laser_readings_polar = None                            # scan readings in polar coordinates
         self.laser_readings_car_orig = None                         # scan readings in cartesian map frame
@@ -384,6 +384,7 @@ class FFDdetectorCLass:
         self.lines_list = []                                        # list of lines between scan points
         self.frontier_list = []                                     # list of frontiers
         self.frontier_idx = 1                                       # the index of frontier to go to (idx of goal front)
+        self.debug_flag = debug_flag                                # shows/not shows debug outputs
 
     def map_laser_readings(self, laser_readings_polar: np.ndarray):
 
@@ -397,14 +398,15 @@ class FFDdetectorCLass:
         laser_readings_car_y = np.zeros(laser_readings_polar.shape)  # array of laser readings in y
         # cartesian coordinates
 
-        # DEBUG
+        if self.debug_flag:
+            # DEBUG
 
-        img = copy.deepcopy(self.map_msg_data_reshape).astype(np.uint8)
+            img = copy.deepcopy(self.map_msg_data_reshape).astype(np.uint8)
 
-        # change map from grayscale to bgr (map will stay the same, but i can add colours for debug)
-        img_3d = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+            # change map from grayscale to bgr (map will stay the same, but i can add colours for debug)
+            img_3d = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
 
-        # END DEBUG
+            # END DEBUG
 
         for laser_reading in laser_readings_polar:
 
@@ -454,26 +456,27 @@ class FFDdetectorCLass:
             laser_readings_car_orig_x[laser_reading] = origin_map_frame_coords[0][0]
             laser_readings_car_orig_y[laser_reading] = origin_map_frame_coords[1][0]
 
-            # DEBUG
+            if self.debug_flag:
+                # DEBUG
 
-            j = int(laser_readings_car_orig_y[laser_reading] / self.map_res)
-            i = int(laser_readings_car_orig_x[laser_reading] / self.map_res)
+                j = int(laser_readings_car_orig_y[laser_reading] / self.map_res)
+                i = int(laser_readings_car_orig_x[laser_reading] / self.map_res)
 
-            # getting the coordinates of the pixel, corresponding to the scan measurement
-            coords_pix = {"j": j if j < self.map_msg_data_reshape.shape[0] - 1 else self.map_msg_data_reshape.shape[0] - 1,
-                          "i": i if i < self.map_msg_data_reshape.shape[1] - 1 else self.map_msg_data_reshape.shape[1] - 1}
+                # getting the coordinates of the pixel, corresponding to the scan measurement
+                coords_pix = {"j": j if j < self.map_msg_data_reshape.shape[0] - 1 else self.map_msg_data_reshape.shape[0] - 1,
+                              "i": i if i < self.map_msg_data_reshape.shape[1] - 1 else self.map_msg_data_reshape.shape[1] - 1}
 
-            cv2.namedWindow('map laser readings', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+                cv2.namedWindow('map laser readings', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
 
-            img_3d[coords_pix["j"], coords_pix["i"], :] = np.array([255, 0, 0])
+                img_3d[coords_pix["j"], coords_pix["i"], :] = np.array([255, 0, 0])
 
-            cv2.imshow('map laser readings', img_3d)  # show image on window 'win_name' made of numpy.ndarray
-            cv2.resizeWindow('map laser readings', 1600, 900)  # resizing window on my resolution
+                cv2.imshow('map laser readings', img_3d)  # show image on window 'win_name' made of numpy.ndarray
+                cv2.resizeWindow('map laser readings', 1600, 900)  # resizing window on my resolution
 
-            cv2.waitKey(10)  # wait for key pressing
-            cv2.destroyAllWindows()  # close all windows
+                cv2.waitKey(10)  # wait for key pressing
+                cv2.destroyAllWindows()  # close all windows
 
-            # DEBUG END
+                # DEBUG END
 
         laser_readings_car_orig = np.vstack((laser_readings_car_orig_x, laser_readings_car_orig_y))
 
@@ -495,14 +498,15 @@ class FFDdetectorCLass:
         points_list = [previous_point]  # creating list, containing first point in the line, to store the points
         new_point = {"i": previous_point["i"], "j": previous_point["j"]}
 
-        # DEBUG
+        if self.debug_flag:
+            # DEBUG
 
-        img = copy.deepcopy(self.map_msg_data_reshape).astype(np.uint8)
+            img = copy.deepcopy(self.map_msg_data_reshape).astype(np.uint8)
 
-        # change map from grayscale to bgr (map will stay the same, but i can add colours for debug)
-        img_3d = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+            # change map from grayscale to bgr (map will stay the same, but i can add colours for debug)
+            img_3d = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
 
-        # END OF DEBUG
+            # END OF DEBUG
 
         for inc in range(0, steps):
 
@@ -510,33 +514,34 @@ class FFDdetectorCLass:
             new_point["j"] += j_inc
             points_list.append({"i": int(new_point["i"]), "j": int(new_point["j"])})
 
-            # DEBUG
+            if self.debug_flag:
+                # DEBUG
 
-            i = int(new_point["i"])
-            j = int(new_point["j"])
-            # getting the coordinates of the pixel, corresponding to the scan measurement
-            coords_pix = {"j": j if j < self.map_msg_data_reshape.shape[0] - 1 else self.map_msg_data_reshape.shape[0] - 1,
-                          "i": i if i < self.map_msg_data_reshape.shape[1] - 1 else self.map_msg_data_reshape.shape[1] - 1}
+                i = int(new_point["i"])
+                j = int(new_point["j"])
+                # getting the coordinates of the pixel, corresponding to the scan measurement
+                coords_pix = {"j": j if j < self.map_msg_data_reshape.shape[0] - 1 else self.map_msg_data_reshape.shape[0] - 1,
+                              "i": i if i < self.map_msg_data_reshape.shape[1] - 1 else self.map_msg_data_reshape.shape[1] - 1}
 
-            cv2.namedWindow('Drawing line', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+                cv2.namedWindow('Drawing line', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
 
-            img_3d[coords_pix["j"], coords_pix["i"], :] = np.array([0, 0, 255])
+                img_3d[coords_pix["j"], coords_pix["i"], :] = np.array([0, 0, 255])
 
-            cv2.imshow('Drawing line', img_3d)  # show image on window 'win_name' made of numpy.ndarray
-            cv2.resizeWindow('Drawing line', 1600, 900)  # resizing window on my resolution
+                cv2.imshow('Drawing line', img_3d)  # show image on window 'win_name' made of numpy.ndarray
+                cv2.resizeWindow('Drawing line', 1600, 900)  # resizing window on my resolution
 
-            # if big line is drawn - hold a picture a little bit longer
-            if inc == steps-1 and steps > 1:
+                # if big line is drawn - hold a picture a little bit longer
+                if inc == steps-1 and steps > 1:
 
-                cv2.waitKey(1000)  # wait for key pressing
+                    cv2.waitKey(1000)  # wait for key pressing
 
-            else:
+                else:
 
-                cv2.waitKey(10)  # wait for key pressing
+                    cv2.waitKey(10)  # wait for key pressing
 
-            cv2.destroyAllWindows()  # close all windows
+                cv2.destroyAllWindows()  # close all windows
 
-            # DEBUG END
+                # DEBUG END
 
         return points_list
 
@@ -583,14 +588,15 @@ class FFDdetectorCLass:
         frontier_list = []          # empty list to store frontiers
         new_frontier = FFDfrontier()
 
-        # DEBUG
+        if self.debug_flag:
+            # DEBUG
 
-        img = copy.deepcopy(self.map_msg_data_reshape).astype(np.uint8)
+            img = copy.deepcopy(self.map_msg_data_reshape).astype(np.uint8)
 
-        # change map from grayscale to bgr (map will stay the same, but i can add colours for debug)
-        img_3d = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+            # change map from grayscale to bgr (map will stay the same, but i can add colours for debug)
+            img_3d = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
 
-        # END OF DEBUG
+            # END OF DEBUG
 
         # for cyclus to check all points in all lines to find frontiers
         for line in lines_list:
@@ -604,25 +610,26 @@ class FFDdetectorCLass:
                     # add cell to frontier object
                     new_frontier.add_point(point)
 
-                    # DEBUG
+                    if self.debug_flag:
+                        # DEBUG
 
-                    i = int(point["i"])
-                    j = int(point["j"])
-                    # getting the coordinates of the pixel, corresponding to the scan measurement
-                    coords_pix = {"j": j if j < self.map_msg_data_reshape.shape[0] - 1 else self.map_msg_data_reshape.shape[0] - 1,
-                                  "i": i if i < self.map_msg_data_reshape.shape[1] - 1 else self.map_msg_data_reshape.shape[1] - 1}
+                        i = int(point["i"])
+                        j = int(point["j"])
+                        # getting the coordinates of the pixel, corresponding to the scan measurement
+                        coords_pix = {"j": j if j < self.map_msg_data_reshape.shape[0] - 1 else self.map_msg_data_reshape.shape[0] - 1,
+                                      "i": i if i < self.map_msg_data_reshape.shape[1] - 1 else self.map_msg_data_reshape.shape[1] - 1}
 
-                    cv2.namedWindow('finding frontiers', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+                        cv2.namedWindow('finding frontiers', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
 
-                    img_3d[coords_pix["j"], coords_pix["i"], :] = np.array([0, 0, 255])
+                        img_3d[coords_pix["j"], coords_pix["i"], :] = np.array([0, 0, 255])
 
-                    cv2.imshow('finding frontiers', img_3d)  # show image on window 'win_name' made of numpy.ndarray
-                    cv2.resizeWindow('finding frontiers', 1600, 900)  # resizing window on my resolution
+                        cv2.imshow('finding frontiers', img_3d)  # show image on window 'win_name' made of numpy.ndarray
+                        cv2.resizeWindow('finding frontiers', 1600, 900)  # resizing window on my resolution
 
-                    cv2.waitKey(10)  # wait for key pressing
-                    cv2.destroyAllWindows()  # close all windows
+                        cv2.waitKey(10)  # wait for key pressing
+                        cv2.destroyAllWindows()  # close all windows
 
-                    # DEBUG END
+                        # DEBUG END
 
                 # if the frontier isn't empty
                 if obst_flag and new_frontier.list_of_points:
@@ -662,6 +669,8 @@ class FFDdetectorCLass:
 
             frontier.calculate_centroid()   # calculating centroid for each frontier
 
+        # TODO: Frontier sorting from big to small
+
         # Going to new frontier if map changed, Else going to old frontiers
         if np.all(map_msg_data_reshape == previous_map):
 
@@ -675,30 +684,31 @@ class FFDdetectorCLass:
             goal = {"x": self.frontier_list[0].centroid["i"] * self.map_res,
                     "y": self.frontier_list[0].centroid["j"] * self.map_res}
 
-        # DEBUG
+        if self.debug_flag:
+            # DEBUG
 
-        img = copy.deepcopy(self.map_msg_data_reshape).astype(np.uint8)
+            img = copy.deepcopy(self.map_msg_data_reshape).astype(np.uint8)
 
-        # change map from grayscale to bgr (map will stay the same, but i can add colours for debug)
-        img_3d = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+            # change map from grayscale to bgr (map will stay the same, but i can add colours for debug)
+            img_3d = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
 
-        i = int(goal["x"]/self.map_res)
-        j = int(goal["y"]/self.map_res)
-        # getting the coordinates of the pixel, corresponding to the scan measurement
-        coords_pix = {"j": j if j < self.map_msg_data_reshape.shape[0] - 1 else self.map_msg_data_reshape.shape[0] - 1,
-                      "i": i if i < self.map_msg_data_reshape.shape[1] - 1 else self.map_msg_data_reshape.shape[1] - 1}
+            i = int(goal["x"]/self.map_res)
+            j = int(goal["y"]/self.map_res)
+            # getting the coordinates of the pixel, corresponding to the scan measurement
+            coords_pix = {"j": j if j < self.map_msg_data_reshape.shape[0] - 1 else self.map_msg_data_reshape.shape[0] - 1,
+                          "i": i if i < self.map_msg_data_reshape.shape[1] - 1 else self.map_msg_data_reshape.shape[1] - 1}
 
-        cv2.namedWindow('Goal', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+            cv2.namedWindow('Goal', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
 
-        img_3d[coords_pix["j"], coords_pix["i"], :] = np.array([0, 255, 0])
+            img_3d[coords_pix["j"], coords_pix["i"], :] = np.array([0, 255, 0])
 
-        cv2.imshow('Goal', img_3d)  # show image on window 'win_name' made of numpy.ndarray
-        cv2.resizeWindow('Goal', 1600, 900)  # resizing window on my resolution
+            cv2.imshow('Goal', img_3d)  # show image on window 'win_name' made of numpy.ndarray
+            cv2.resizeWindow('Goal', 1600, 900)  # resizing window on my resolution
 
-        cv2.waitKey(1000)  # wait for key pressing
-        cv2.destroyAllWindows()  # close all windows
+            cv2.waitKey(1000)  # wait for key pressing
+            cv2.destroyAllWindows()  # close all windows
 
-        # DEBUG END
+            # DEBUG END
 
         return goal
 
@@ -969,7 +979,7 @@ class TurtleBotSlamExplorer:
                     frontier_detector = DFDdetectorClass(0.05, 0.9)       # init frontier detector class
 
                 elif self.frontier_detection_method == "FFD":
-                    frontier_detector = FFDdetectorCLass()                  # init frontier detector class
+                    frontier_detector = FFDdetectorCLass(True)                  # init frontier detector class
 
                 raw_map = rospy.wait_for_message('/map', OccupancyGrid)  # get map with metadata
                 raw_map_data_numpy = np.asarray(raw_map.data)  # 1d map -> np.ndarray
