@@ -471,7 +471,7 @@ class FFDdetectorCLass:
             cv2.resizeWindow('map laser readings', 1600, 900)  # resizing window on my resolution
 
             cv2.waitKey(10)  # wait for key pressing
-            # cv2.destroyAllWindows()  # close all windows
+            cv2.destroyAllWindows()  # close all windows
 
             # DEBUG END
 
@@ -534,7 +534,7 @@ class FFDdetectorCLass:
 
                 cv2.waitKey(10)  # wait for key pressing
 
-            # cv2.destroyAllWindows()  # close all windows
+            cv2.destroyAllWindows()  # close all windows
 
             # DEBUG END
 
@@ -620,7 +620,7 @@ class FFDdetectorCLass:
                     cv2.resizeWindow('finding frontiers', 1600, 900)  # resizing window on my resolution
 
                     cv2.waitKey(10)  # wait for key pressing
-                    # cv2.destroyAllWindows()  # close all windows
+                    cv2.destroyAllWindows()  # close all windows
 
                     # DEBUG END
 
@@ -682,8 +682,8 @@ class FFDdetectorCLass:
         # change map from grayscale to bgr (map will stay the same, but i can add colours for debug)
         img_3d = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
 
-        i = int(goal["i"])
-        j = int(goal["j"])
+        i = int(goal["x"]/self.map_res)
+        j = int(goal["y"]/self.map_res)
         # getting the coordinates of the pixel, corresponding to the scan measurement
         coords_pix = {"j": j if j < self.map_msg_data_reshape.shape[0] - 1 else self.map_msg_data_reshape.shape[0] - 1,
                       "i": i if i < self.map_msg_data_reshape.shape[1] - 1 else self.map_msg_data_reshape.shape[1] - 1}
@@ -696,7 +696,7 @@ class FFDdetectorCLass:
         cv2.resizeWindow('Goal', 1600, 900)  # resizing window on my resolution
 
         cv2.waitKey(1000)  # wait for key pressing
-        # cv2.destroyAllWindows()  # close all windows
+        cv2.destroyAllWindows()  # close all windows
 
         # DEBUG END
 
@@ -1137,9 +1137,11 @@ class TurtleBotSlamExplorer:
 
 def main():
     rospy.init_node('slam_explorer_n')
+
     # DFD - Yamauchi Frontier Detection (YFD)
     # FFD - Fast Frontier Detection
     # WFD - Wavefront Frontier Detection
+
     # slam_explorer = TurtleBotSlamExplorer("DFD")
     slam_explorer = TurtleBotSlamExplorer("FFD")
     slam_explorer.explore()
