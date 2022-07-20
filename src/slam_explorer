@@ -346,6 +346,8 @@ class FFDfrontier:
 
         self.centroid = {"i": None, "j": None}      # initialise centroid attribute
 
+        self.num_of_elements = 0                    # number of cells in frontier
+
     def add_point(self, point):
 
         self.list_of_points.append(point)
@@ -353,6 +355,10 @@ class FFDfrontier:
     def delete_all_points(self):
 
         self.list_of_points = []
+
+    def calculate_num_of_elements(self):
+
+        self.num_of_elements = self.list_of_points.__len__()
 
     def calculate_centroid(self):
 
@@ -474,7 +480,7 @@ class FFDdetectorCLass:
                 cv2.resizeWindow('map laser readings', 1600, 900)  # resizing window on my resolution
 
                 cv2.waitKey(10)  # wait for key pressing
-                cv2.destroyAllWindows()  # close all windows
+                # cv2.destroyAllWindows()  # close all windows
 
                 # DEBUG END
 
@@ -539,7 +545,7 @@ class FFDdetectorCLass:
 
                     cv2.waitKey(10)  # wait for key pressing
 
-                cv2.destroyAllWindows()  # close all windows
+                # cv2.destroyAllWindows()  # close all windows
 
                 # DEBUG END
 
@@ -627,7 +633,7 @@ class FFDdetectorCLass:
                         cv2.resizeWindow('finding frontiers', 1600, 900)  # resizing window on my resolution
 
                         cv2.waitKey(10)  # wait for key pressing
-                        cv2.destroyAllWindows()  # close all windows
+                        # cv2.destroyAllWindows()  # close all windows
 
                         # DEBUG END
 
@@ -668,10 +674,12 @@ class FFDdetectorCLass:
         for frontier in self.frontier_list:
 
             frontier.calculate_centroid()   # calculating centroid for each frontier
+            frontier.calculate_num_of_elements()
 
-        # TODO: Frontier sorting from big to small
+        # Sort frontiers from big to small
+        self.frontier_list.sort(key=lambda x: x.num_of_elements, reverse=True)
 
-        # Going to new frontier if map changed, Else going to old frontiers
+        # Going to old frontiers, else if map changed, go to the new one
         if np.all(map_msg_data_reshape == previous_map):
 
             goal = {"x": self.frontier_list[self.frontier_idx].centroid["i"]*self.map_res,
@@ -685,6 +693,17 @@ class FFDdetectorCLass:
                     "y": self.frontier_list[0].centroid["j"] * self.map_res}
 
         if self.debug_flag:
+            # DEBUG
+
+            print("         ||FFD||         ")
+            print("+-----------+-----------+")
+            print("| front idx | front num |")
+            print("+-----------+-----------+")
+            print("|   %d      |     %d    |" % (self.frontier_idx, self.frontier_list.__len__()))
+            print("+-----------+-----------+")
+
+            # DEBUG
+
             # DEBUG
 
             img = copy.deepcopy(self.map_msg_data_reshape).astype(np.uint8)
