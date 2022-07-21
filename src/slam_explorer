@@ -430,6 +430,16 @@ class FFDdetectorCLass:
 
             angle_of_reading += 1  # increasing angle for next laser reading
 
+        # deleting the 'inf' or [0, 0] scan values from array
+
+        inf_idxs = np.where(np.logical_and(laser_readings_car_x == 0,
+                                           laser_readings_car_y == 0))
+
+        laser_readings_car_x = np.delete(laser_readings_car_x, inf_idxs)
+        laser_readings_car_y = np.delete(laser_readings_car_y, inf_idxs)
+
+        # stacking together laser x and y to common array
+
         laser_readings_car = np.vstack((laser_readings_car_x, laser_readings_car_y))
 
         # Transform /scan from robot's coordinate system to map (origin) coordinate system
@@ -699,7 +709,7 @@ class FFDdetectorCLass:
             print("+-----------+-----------+")
             print("| front idx | front num |")
             print("+-----------+-----------+")
-            print("|   %d      |     %d    |" % (self.frontier_idx, self.frontier_list.__len__()))
+            print("|   %d       |     %d     |" % (self.frontier_idx+1, self.frontier_list.__len__()))
             print("+-----------+-----------+")
 
             # DEBUG
