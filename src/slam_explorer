@@ -814,7 +814,7 @@ class FFDdetectorCLass:
 
                 # DEBUG END
 
-            return goal
+            return goal 
 
         # # Getting actual data about robot's position and rotation
         # self.pos_of_robot = pos_of_robot
