@@ -453,6 +453,12 @@ class FFDdetectorCLass:
         laser_readings_car_orig_y = np.zeros(laser_readings_polar.shape)  # array of laser readings in y
         # origin cartesian coordinates
 
+        laser_readings_car_orig_i = np.zeros(laser_readings_polar.shape)  # array of laser readings in i
+        # origin cartesian coordinates
+
+        laser_readings_car_orig_j = np.zeros(laser_readings_polar.shape)  # array of laser readings in j
+        # origin cartesian coordinates
+
         for laser_reading in range(0, laser_readings_car.shape[1] - 1):
 
             # getting x,y coordinates in robot's coordinate system
@@ -472,6 +478,9 @@ class FFDdetectorCLass:
 
             laser_readings_car_orig_x[laser_reading] = origin_map_frame_coords[0][0]
             laser_readings_car_orig_y[laser_reading] = origin_map_frame_coords[1][0]
+
+            laser_readings_car_orig_i[laser_reading] = int(origin_map_frame_coords[0][0]/self.map_res)
+            laser_readings_car_orig_j[laser_reading] = int(origin_map_frame_coords[1][0]/self.map_res)
 
             if self.debug_flag:
                 # DEBUG
@@ -496,6 +505,10 @@ class FFDdetectorCLass:
                 # DEBUG END
 
         laser_readings_car_orig = np.vstack((laser_readings_car_orig_x, laser_readings_car_orig_y))
+        laser_readings_car_orig_pix = np.vstack((laser_readings_car_orig_i, laser_readings_car_orig_j))
+
+        # leaving only unique values
+        laser_readings_car_orig_pix = np.unique(laser_readings_car_orig_pix, axis=1)
 
         # returns laser readings in map (origin) frame
         return laser_readings_car_orig
@@ -550,11 +563,11 @@ class FFDdetectorCLass:
                 # if big line is drawn - hold a picture a little bit longer
                 if inc == steps-1 and steps > 1:
 
-                    cv2.waitKey(1000)  # wait for key pressing
+                    cv2.waitKey(10)  # wait for key pressing
 
                 else:
 
-                    cv2.waitKey(10)  # wait for key pressing
+                    cv2.waitKey(100)  # wait for key pressing
 
                 # cv2.destroyAllWindows()  # close all windows
 
@@ -656,6 +669,57 @@ class FFDdetectorCLass:
                     frontier_list.append(copy.deepcopy(new_frontier))
                     new_frontier.delete_all_points()
 
+                if obst_flag:
+                    if self.debug_flag:
+                        # DEBUG
+
+                        i = int(point["i"])
+                        j = int(point["j"])
+                        # getting the coordinates of the pixel, corresponding to the scan measurement
+                        coords_pix = {
+                            "j": j if j < self.map_msg_data_reshape.shape[0] - 1 else self.map_msg_data_reshape.shape[
+                                                                                          0] - 1,
+                            "i": i if i < self.map_msg_data_reshape.shape[1] - 1 else self.map_msg_data_reshape.shape[
+                                                                                          1] - 1}
+
+                        cv2.namedWindow('finding frontiers', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+
+                        img_3d[coords_pix["j"], coords_pix["i"], :] = np.array([255, 0, 255])  # purple
+
+                        cv2.imshow('finding frontiers', img_3d)  # show image on window 'win_name' made of numpy.ndarray
+                        cv2.resizeWindow('finding frontiers', 1600, 900)  # resizing window on my resolution
+
+                        cv2.waitKey(10)  # wait for key pressing
+                        # cv2.destroyAllWindows()  # close all windows
+
+                        # DEBUG END
+
+                if not obst_flag and not unkn_flag:
+
+                    if self.debug_flag:
+                        # DEBUG
+
+                        i = int(point["i"])
+                        j = int(point["j"])
+                        # getting the coordinates of the pixel, corresponding to the scan measurement
+                        coords_pix = {
+                            "j": j if j < self.map_msg_data_reshape.shape[0] - 1 else self.map_msg_data_reshape.shape[
+                                                                                          0] - 1,
+                            "i": i if i < self.map_msg_data_reshape.shape[1] - 1 else self.map_msg_data_reshape.shape[
+                                                                                          1] - 1}
+
+                        cv2.namedWindow('finding frontiers', cv2.WINDOW_NORMAL)  # new window, named 'win_name'
+
+                        img_3d[coords_pix["j"], coords_pix["i"], :] = np.array([192, 192, 192])     # silver
+
+                        cv2.imshow('finding frontiers', img_3d)  # show image on window 'win_name' made of numpy.ndarray
+                        cv2.resizeWindow('finding frontiers', 1600, 900)  # resizing window on my resolution
+
+                        cv2.waitKey(10)  # wait for key pressing
+                        # cv2.destroyAllWindows()  # close all windows
+
+                        # DEBUG END
+
         return frontier_list
 
     # main function of this class, using all of the above functions to find the goal and maintain found frontiers
@@ -729,12 +793,10 @@ class FFDdetectorCLass:
             cv2.imshow('Goal', img_3d)  # show image on window 'win_name' made of numpy.ndarray
             cv2.resizeWindow('Goal', 1600, 900)  # resizing window on my resolution
 
-            cv2.waitKey(1000)  # wait for key pressing
+            cv2.waitKey(100)  # wait for key pressing
             cv2.destroyAllWindows()  # close all windows
 
             # DEBUG END
-
-        return goal
 
         return goal
 
@@ -1093,7 +1155,7 @@ class TurtleBotSlamExplorer:
 
                 if self.frontier_detection_method == "FFD":
 
-                    frontier_detector.do_ffd_state = 0                              # zeroing the state for do_ffd()
+                    # frontier_detector.do_ffd_state = 0                              # zeroing the state for do_ffd()
                     goal_coords = frontier_detector.do_ffd(pose_of_robot_m,
                                                            yaw_z,                   # yaw of robot
                                                            scan_data,               # raw scan data
