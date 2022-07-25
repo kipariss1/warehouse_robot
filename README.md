@@ -15,6 +15,6 @@ Results of autonomous navigation and mapping with DFD (Yamauchi):
 
 ![Mapping room with slam_toolbox, actionlib and DFD](https://github.com/kipariss1/warehouse_robot/blob/develop_FFD/YFD.gif)
 
-Results of autonomous navigation and mapping with FFD:
+Results of autonomous navigation and mapping with FFD (debug pictures on):
 
 ![Mapping room with slam_toolbox, actionlib and FFD](https://github.com/kipariss1/warehouse_robot/blob/develop_FFD/Working_FFD-turtlebot_sim.gif)
