@@ -127,7 +127,7 @@ class FFDdetectorCLass:
         laser_readings_car_orig_j = np.zeros(laser_readings_car_y.shape)  # array of laser readings in j
         # origin cartesian coordinates
 
-        for laser_reading in range(0, laser_readings_car.shape[1] - 1):
+        for laser_reading in range(0, laser_readings_car.shape[1]):
 
             # getting x,y coordinates in robot's coordinate system
             curr_laser_reading["x"] = laser_readings_car[:, laser_reading][0]
@@ -269,6 +269,12 @@ class FFDdetectorCLass:
             lines_list.append(self.DDALine(curr_point, previous_point))
 
             previous_point = curr_point
+
+        # getting last line from last point to first point
+        curr_point = {"i": laser_readings_car_orig_pix[:, 0][0],
+                      "j": laser_readings_car_orig_pix[:, 0][1]}
+
+        lines_list.append(self.DDALine(curr_point, previous_point))
 
         return lines_list
 
