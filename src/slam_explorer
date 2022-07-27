@@ -767,6 +767,8 @@ class FFDdetectorCLass:
 
         del self.frontier_list[0]  # deleting frontier from frontier list
 
+        # TODO: here translating other frontiers from origin frame to /map frame and saving them global frontier pool
+
         self.frontier_idx += 1
 
         if self.debug_flag:
