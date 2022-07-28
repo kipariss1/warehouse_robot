@@ -152,6 +152,21 @@ class FFDdetectorCLass:
             laser_readings_car_orig_i[laser_reading] = int(origin_map_frame_coords[0][0]/self.map_res)
             laser_readings_car_orig_j[laser_reading] = int(origin_map_frame_coords[1][0]/self.map_res)
 
+            # Checking if laser readings are within map area (if not bounding them by map borders):
+            if laser_readings_car_orig_j[laser_reading] > self.map_msg_data_reshape.shape[0]:
+                laser_readings_car_orig_j[laser_reading] = self.map_msg_data_reshape.shape[0]
+                laser_readings_car_orig_y[laser_reading] = self.map_msg_data_reshape.shape[0]*self.map_res
+            elif laser_readings_car_orig_j[laser_reading] < 0:
+                laser_readings_car_orig_j[laser_reading] = 0
+                laser_readings_car_orig_y[laser_reading] = 0
+
+            if laser_readings_car_orig_i[laser_reading] > self.map_msg_data_reshape.shape[1]:
+                laser_readings_car_orig_i[laser_reading] = self.map_msg_data_reshape.shape[1]
+                laser_readings_car_orig_x[laser_reading] = self.map_msg_data_reshape.shape[1]*self.map_res
+            elif laser_readings_car_orig_i[laser_reading] < 0:
+                laser_readings_car_orig_i[laser_reading] = 0
+                laser_readings_car_orig_x[laser_reading] = 0
+
             if self.debug_flag:
                 # DEBUG
 
