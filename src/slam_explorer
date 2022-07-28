@@ -336,7 +336,6 @@ class DFDdetectorClass:
 
         return goal_coords_m
 
-
 # class for storing the frontiers from FFD method
 class FFDfrontier:
 
@@ -354,7 +353,7 @@ class FFDfrontier:
 
     def delete_all_points(self):
 
-        self.list_of_points = []
+        self.list_of_points.clear()
 
     def calculate_num_of_elements(self):
 
@@ -392,6 +391,8 @@ class FFDdetectorCLass:
         self.frontier_idx = 1                                       # the index of frontier to go to (idx of goal front)
         self.debug_flag = debug_flag                                # shows/not shows debug outputs
         self.do_ffd_state = 0                                       # state enumerator for do_ffd()
+        self.map_origin_pos = {"x": None, "y": None}                # position of [0, 0] cell in map frame
+        self.global_pool_of_frontiers = []                          # stores found old frontiers
 
     def map_laser_readings(self, laser_readings_polar: np.ndarray):
 
@@ -731,8 +732,56 @@ class FFDdetectorCLass:
 
         return frontier_list
 
+    # function returning position of point in origin or map frame
+    def transf_map2odom_and_back(self, from_which_frame: str, to_which_frame: str, point):
+
+        if from_which_frame == "orig" and to_which_frame == "map":
+
+            # x_or is position of point in origin frame
+            if "x" and "y" in point.keys():
+
+                x_or = {"x": point["x"],
+                        "y": point["y"]}
+
+            elif "i" and "j" in point.keys():
+
+                x_or = {"x": point["i"] * self.map_res,
+                        "y": point["j"] * self.map_res}
+
+            x_map_m = {"x": x_or["x"] + self.map_origin_pos["x"],
+                       "y": x_or["y"] + self.map_origin_pos["y"]}
+
+            x_map_pix = {"i": int(x_map_m["x"]/self.map_res),
+                         "j": int(x_map_m["y"]/self.map_res)}
+
+            # returns position of point in map frame in meters
+            return x_map_m, x_map_pix
+
+        elif from_which_frame == "map" and to_which_frame == "odom":
+
+            # x_map is position of point in map frame
+            if "x" and "y" in point.keys():
+
+                x_map = {"x": point["x"],
+                         "y": point["y"]}
+
+            elif "i" and "j" in point.keys():
+
+                x_map = {"x": point["i"] * self.map_res,
+                         "y": point["j"] * self.map_res}
+
+            x_or_m = {"x": x_map["x"] - self.map_origin_pos["x"],
+                      "y": x_map["y"] - self.map_origin_pos["y"]}
+
+            x_or_pix = {"i": int(x_or_m["x"]/self.map_res),
+                        "j": int(x_or_m["y"]/self.map_res)}
+
+            # returns position of point on origin frame in meters
+            return x_or_m, x_or_pix
+
     # main function of this class, using all of the above functions to find the goal and maintain found frontiers
-    def do_ffd(self, pos_of_robot, yaw_rot_of_robot, laser_readings_polar, map_msg_data_reshape, previous_map, map_res):
+    def do_ffd(self, pos_of_robot, yaw_rot_of_robot, laser_readings_polar, map_msg_data_reshape, previous_map, map_res,
+               map_origin_position):
 
         # Getting actual data about robot's position and rotation
         self.pos_of_robot = pos_of_robot
@@ -741,6 +790,7 @@ class FFDdetectorCLass:
         # Getting actual map
         self.map_msg_data_reshape = map_msg_data_reshape
         self.map_res = map_res
+        self.map_origin_pos = map_origin_position
 
         # Getting actual laser readings
         self.laser_readings_polar = laser_readings_polar
@@ -762,12 +812,45 @@ class FFDdetectorCLass:
         # Sort frontiers from big to small
         self.frontier_list.sort(key=lambda x: x.num_of_elements, reverse=True)
 
-        goal = {"x": self.frontier_list[0].centroid["i"] * self.map_res,
-                "y": self.frontier_list[0].centroid["j"] * self.map_res}
+        # if ffd algorithm found frontiers -> go to biggest one newly found
+        if self.frontier_list:
+            goal = {"x": self.frontier_list[0].centroid["i"] * self.map_res,
+                    "y": self.frontier_list[0].centroid["j"] * self.map_res}
 
-        del self.frontier_list[0]  # deleting frontier from frontier list
+            del self.frontier_list[0]  # deleting frontier from frontier list
 
-        # TODO: here translating other frontiers from origin frame to /map frame and saving them global frontier pool
+        elif not self.frontier_list and self.global_pool_of_frontiers or self.map_msg_data_reshape == previous_map:
+
+            obst_flag = False
+            unkn_flag = False
+
+            while not obst_flag and unkn_flag:
+
+                # transforming back frontier's centroid from map frame, [i, j] --> orig frame, [i, j]
+                goal, self.global_pool_of_frontiers[0].centroid = \
+                    self.transf_map2odom_and_back("map", "orig", self.global_pool_of_frontiers[0].centroid)
+                # checking if frontier's centroid is useful and not explored goal
+                unkn_flag, obst_flag = self.check_neighbours(self.global_pool_of_frontiers[0].centroid)
+                del self.global_pool_of_frontiers[0]
+
+        else:
+
+            rospy.signal_shutdown("All Frontiers are visited")
+
+        # TODO: here translating other frontiers centroids
+
+        # Writing down found frontier to the global pool to use later if scan won't find any new frontiers
+
+        for frontier in self.frontier_list:
+
+            # transforming frontiers centroid from origin frame, [i, j] --> map frame, [i, j]
+            _, frontier.centroid = self.transf_map2odom_and_back("orig", "map", frontier.centroid)
+            # deleting all points, bcs centroid is already calculated and wrote down and it's all we need
+            frontier.delete_all_points()
+            # appending frontier with no points, only with found centroid in map frame
+            self.global_pool_of_frontiers.append(frontier)
+
+        #  from origin frame to /map frame and saving them global frontier pool
 
         self.frontier_idx += 1
 
@@ -1172,7 +1255,8 @@ class TurtleBotSlamExplorer:
                                                            scan_data,               # raw scan data
                                                            raw_map_data_numpy_reshape,
                                                            previous_map_reshape,
-                                                           raw_map.info.resolution)
+                                                           raw_map.info.resolution,
+                                                           raw_map_origin_pos)
 
 
                 previous_map_reshape = raw_map_data_numpy_reshape

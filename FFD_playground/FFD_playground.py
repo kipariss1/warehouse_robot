@@ -6,9 +6,6 @@ from math import sin, cos, pi
 
 
 # class for storing the frontiers from FFD method
-import rospy
-
-
 class FFDfrontier:
 
     def __init__(self):
@@ -491,7 +488,7 @@ class FFDdetectorCLass:
 
             del self.frontier_list[0]  # deleting frontier from frontier list
 
-        elif not self.frontier_list and self.global_pool_of_frontiers:
+        elif not self.frontier_list and self.global_pool_of_frontiers or self.map_msg_data_reshape == previous_map:
 
             obst_flag = False
             unkn_flag = False
