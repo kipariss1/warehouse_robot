@@ -393,6 +393,7 @@ class FFDdetectorCLass:
         self.do_ffd_state = 0                                       # state enumerator for do_ffd()
         self.map_origin_pos = {"x": None, "y": None}                # position of [0, 0] cell in map frame
         self.global_pool_of_frontiers = []                          # stores found old frontiers
+        self.num_of_iter_map_unchnged = 0                           # number of iteration, map doesn't change
 
     def map_laser_readings(self, laser_readings_polar: np.ndarray):
 
@@ -772,7 +773,7 @@ class FFDdetectorCLass:
             # returns position of point in map frame in meters
             return x_map_m, x_map_pix
 
-        elif from_which_frame == "map" and to_which_frame == "odom":
+        elif from_which_frame == "map" and to_which_frame == "orig":
 
             # x_map is position of point in map frame
             if "x" and "y" in point.keys():
@@ -810,58 +811,84 @@ class FFDdetectorCLass:
         # Getting actual laser readings
         self.laser_readings_polar = laser_readings_polar
 
-        # Maping laser readings to map (returning laser values mapped on map in pix)
-        _, self.laser_readings_car_orig_pix = self.map_laser_readings(self.laser_readings_polar)
+        # Cheking for how much iteration map is staying the same (without changes)
+        if np.all(self.map_msg_data_reshape == previous_map):
+            self.num_of_iter_map_unchnged += 1
+        else:
+            self.num_of_iter_map_unchnged = 0
 
-        # Getting lines between separate scan readings
-        self.lines_list = self.get_lines_from_laser_readings(self.laser_readings_car_orig_pix)
+        if self.debug_flag:
 
-        # Finding frontiers in lines
-        self.frontier_list = self.find_frontiers_in_lines(self.lines_list)
+            print(f"--> FFD: This is {self.num_of_iter_map_unchnged}x map didn't change <--")
 
-        # Finding the centroids from all frontiers
-        for frontier in self.frontier_list:
-            frontier.calculate_centroid()  # calculating centroid for each frontier
-            frontier.calculate_num_of_elements()
+        if self.num_of_iter_map_unchnged < 2:
 
-        # Sort frontiers from big to small
-        self.frontier_list.sort(key=lambda x: x.num_of_elements, reverse=True)
+            # Maping laser readings to map (returning laser values mapped on map in pix)
+            _, self.laser_readings_car_orig_pix = self.map_laser_readings(self.laser_readings_polar)
 
-        # if ffd algorithm found frontiers -> go to biggest one newly found
-        if self.frontier_list:
+            # Getting lines between separate scan readings
+            self.lines_list = self.get_lines_from_laser_readings(self.laser_readings_car_orig_pix)
+
+            # Finding frontiers in lines
+            self.frontier_list = self.find_frontiers_in_lines(self.lines_list)
+
+            # Finding the centroids from all frontiers
+            for frontier in self.frontier_list:
+                frontier.calculate_centroid()  # calculating centroid for each frontier
+                frontier.calculate_num_of_elements()
+
+            # Sort frontiers from big to small
+            self.frontier_list.sort(key=lambda x: x.num_of_elements, reverse=True)
+
+        # if ffd algorithm found frontiers and it's not stuck at the same frontier -> go to biggest one newly found
+        if self.frontier_list and self.num_of_iter_map_unchnged < 2:
             goal = {"x": self.frontier_list[0].centroid["i"] * self.map_res,
                     "y": self.frontier_list[0].centroid["j"] * self.map_res}
 
             del self.frontier_list[0]  # deleting frontier from frontier list
 
-        elif not self.frontier_list and self.global_pool_of_frontiers:
+            # Writing down found frontier to the global pool to use later if scan won't find any new frontiers
+            for frontier in self.frontier_list:
+                # transforming frontiers centroid from origin frame, [i, j] --> map frame, [i, j]
+                _, frontier.centroid = self.transf_map2odom_and_back("orig", "map", frontier.centroid)
+                # deleting all points, bcs centroid is already calculated and wrote down and it's all we need
+                frontier.delete_all_points()
+                # appending frontier with no points, only with found centroid in map frame
+                self.global_pool_of_frontiers.append(frontier)
+
+        elif self.num_of_iter_map_unchnged >= 2 or not self.frontier_list:
+
+            if self.debug_flag:
+                print(f"--> FFD: Using global pool of frontiers, it has {self.global_pool_of_frontiers.__len__()} "
+                      f"frontiers <--")
+
+                print(f"--> FFD: Type of self.global_pool_of_frontiers: {type(self.global_pool_of_frontiers.__len__())} "
+                      f"frontiers <--")
+
+            # # transforming back frontier's centroid from map frame, [i, j] --> orig frame, [i, j]
+            # goal, self.global_pool_of_frontiers[0].centroid = \
+            #     self.transf_map2odom_and_back("map", "orig", self.global_pool_of_frontiers[0].centroid)
+            # del self.global_pool_of_frontiers[0]
 
             obst_flag = False
             unkn_flag = False
 
-            while not obst_flag and unkn_flag:
-
+            while self.global_pool_of_frontiers.__len__() != 0:
                 # transforming back frontier's centroid from map frame, [i, j] --> orig frame, [i, j]
                 goal, self.global_pool_of_frontiers[0].centroid = \
                     self.transf_map2odom_and_back("map", "orig", self.global_pool_of_frontiers[0].centroid)
                 # checking if frontier's centroid is useful and not explored goal
                 unkn_flag, obst_flag = self.check_neighbours(self.global_pool_of_frontiers[0].centroid)
+                if unkn_flag and not obst_flag and self.debug_flag:
+                    print("--> FFD: Suitable frontier found <--")
+                    break
+                else:
+                    print("--> FFD: Suitable haven't been found yet <--")
                 del self.global_pool_of_frontiers[0]
 
         else:
 
             rospy.signal_shutdown("All Frontiers are visited")
-
-        # Writing down found frontier to the global pool to use later if scan won't find any new frontiers
-
-        for frontier in self.frontier_list:
-
-            # transforming frontiers centroid from origin frame, [i, j] --> map frame, [i, j]
-            _, frontier.centroid = self.transf_map2odom_and_back("orig", "map", frontier.centroid)
-            # deleting all points, bcs centroid is already calculated and wrote down and it's all we need
-            frontier.delete_all_points()
-            # appending frontier with no points, only with found centroid in map frame
-            self.global_pool_of_frontiers.append(frontier)
 
         #  from origin frame to /map frame and saving them global frontier pool
 
