@@ -629,10 +629,64 @@ class FFDdetectorCLass:
 
     def check_neighbours(self, point):
 
-        bounds = 1                      # boundaries for checking the neighbours (if 1 -> checks 3x3 submap)
+        bounds = 1                      # boundaries for checking the neighbours (if 1 -> check 3x3 submap)
 
-        submap = self.map_msg_data_reshape[point["j"] - bounds: point["j"] + bounds + 1,
-                 point["i"] - bounds: point["i"] + bounds + 1]
+        # if point is in the map area and doesn't touch bounds of map
+        if point["j"] != self.map_msg_data_reshape.shape[0] and point["j"] != 0 and \
+                point["i"] != self.map_msg_data_reshape.shape[1] and point["i"] != 0:
+            submap = self.map_msg_data_reshape[point["j"] - bounds: point["j"] + bounds + 1,
+                     point["i"] - bounds: point["i"] + bounds + 1]
+
+        # if point is in the left upper corner of the map
+        elif point["j"] == 0 and point["i"] == 0:
+            # print("Checking left upper corner")
+            submap = self.map_msg_data_reshape[point["j"]: point["j"] + bounds + 1,
+                     point["i"]: point["i"] + bounds + 1]
+
+        # if point is touching upper boundary of the map
+        elif point["j"] == 0 and point["i"] != 0 and point["i"] != self.map_msg_data_reshape.shape[1]:
+            # print("Checking upper boundary")
+            submap = self.map_msg_data_reshape[point["j"]: point["j"] + bounds + 1,
+                     point["i"] - bounds: point["i"] + bounds + 1]
+
+        # if point is in the right upper corner of the map
+        elif point["j"] == 0 and point["i"] == self.map_msg_data_reshape.shape[1]:
+            # print("Checking right upper corner")
+            submap = self.map_msg_data_reshape[point["j"]: point["j"] + bounds + 1,
+                     point["i"] - bounds: point["i"] + 1]
+
+        # if point is touching right boundary of the map
+        elif point["j"] != self.map_msg_data_reshape.shape[0] and point["j"] != 0 and \
+                point["i"] == self.map_msg_data_reshape.shape[1]:
+            # print("Checking right boundary")
+            submap = self.map_msg_data_reshape[point["j"] - bounds: point["j"] + bounds + 1,
+                     point["i"] - bounds: point["i"] + 1]
+
+        # if point is in the right lower corner of the map
+        elif point["j"] == self.map_msg_data_reshape.shape[0] and point["i"] == self.map_msg_data_reshape.shape[1]:
+            # print("Checking right lower corner")
+            submap = self.map_msg_data_reshape[point["j"] - bounds: point["j"] + 1,
+                     point["i"] - bounds: point["i"] + 1]
+
+        # if point is toching lower boundary of the map
+        elif point["j"] == self.map_msg_data_reshape.shape[0] and point["i"] != 0 \
+                and point["i"] != self.map_msg_data_reshape.shape[1]:
+            # print("Checking lower boundary")
+            submap = self.map_msg_data_reshape[point["j"] - bounds: point["j"] + 1,
+                     point["i"] - bounds: point["i"] + bounds + 1]
+
+        # if point is in the left lower corner of the map
+        elif point["j"] == self.map_msg_data_reshape.shape[0] and point["i"] == 0:
+            # print("Checking left lower corner")
+            submap = self.map_msg_data_reshape[point["j"] - bounds: point["j"] + 1,
+                     point["i"]: point["i"] + bounds + 1]
+
+        # if point is touching left boundary of the map
+        elif point["j"] != 0 and point["j"] != self.map_msg_data_reshape.shape[0] and point["i"] == 0:
+
+            # print("Checking left boundary")
+            submap = self.map_msg_data_reshape[point["j"] - bounds: point["j"] + bounds + 1,
+                     point["i"]: point["i"] + bounds + 1]
 
         unkn_flag = -1 in submap    # flag, indicating, there is unknown cells in the neighbouring cells in the map
         obst_flag = 100 in submap   # flag, indicating, there is an obstacle in the neighbouring cells in the map
