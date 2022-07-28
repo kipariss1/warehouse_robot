@@ -555,7 +555,7 @@ class FFDdetectorCLass:
                     print("--> FFD: Suitable haven't been found yet <--")
                 del self.global_pool_of_frontiers[0]
 
-        else:
+        else: 
 
             rospy.signal_shutdown("All Frontiers are visited")
 
