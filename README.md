@@ -21,4 +21,4 @@ Results of autonomous navigation and mapping with FFD (debug pictures on):
 
 Results of autonomous navigation and mapping with FFD on the same map as DFD(debug pictures off):
 
-![Mapping room with slam_toolbox, actionlib and FFD](https://github.com/kipariss1/warehouse_robot/master/develop_FFD/working_FFD_big_map.gif)
+![Mapping room with slam_toolbox, actionlib and FFD](https://github.com/kipariss1/warehouse_robot/blob/master/working_FFD_big_map.gif)
