@@ -875,24 +875,22 @@ class FFDdetectorCLass:
 
             print(f"--> FFD: This is {self.num_of_iter_map_unchnged}x map didn't change <--")
 
-        if self.num_of_iter_map_unchnged < 2:
+        # Maping laser readings to map (returning laser values mapped on map in pix)
+        _, self.laser_readings_car_orig_pix = self.map_laser_readings(self.laser_readings_polar)
 
-            # Maping laser readings to map (returning laser values mapped on map in pix)
-            _, self.laser_readings_car_orig_pix = self.map_laser_readings(self.laser_readings_polar)
+        # Getting lines between separate scan readings
+        self.lines_list = self.get_lines_from_laser_readings(self.laser_readings_car_orig_pix)
 
-            # Getting lines between separate scan readings
-            self.lines_list = self.get_lines_from_laser_readings(self.laser_readings_car_orig_pix)
+        # Finding frontiers in lines
+        self.frontier_list = self.find_frontiers_in_lines(self.lines_list)
 
-            # Finding frontiers in lines
-            self.frontier_list = self.find_frontiers_in_lines(self.lines_list)
+        # Finding the centroids from all frontiers
+        for frontier in self.frontier_list:
+            frontier.calculate_centroid()  # calculating centroid for each frontier
+            frontier.calculate_num_of_elements()
 
-            # Finding the centroids from all frontiers
-            for frontier in self.frontier_list:
-                frontier.calculate_centroid()  # calculating centroid for each frontier
-                frontier.calculate_num_of_elements()
-
-            # Sort frontiers from big to small
-            self.frontier_list.sort(key=lambda x: x.num_of_elements, reverse=True)
+        # Sort frontiers from big to small
+        self.frontier_list.sort(key=lambda x: x.num_of_elements, reverse=True)
 
         # if ffd algorithm found frontiers and it's not stuck at the same frontier -> go to biggest one newly found
         if self.frontier_list and self.num_of_iter_map_unchnged < 2:
@@ -933,11 +931,13 @@ class FFDdetectorCLass:
                     self.transf_map2odom_and_back("map", "orig", self.global_pool_of_frontiers[0].centroid)
                 # checking if frontier's centroid is useful and not explored goal
                 unkn_flag, obst_flag = self.check_neighbours(self.global_pool_of_frontiers[0].centroid)
-                if unkn_flag and not obst_flag and self.debug_flag:
-                    print("--> FFD: Suitable frontier found <--")
+                if unkn_flag and not obst_flag:
+                    if self.debug_flag:
+                        print("--> FFD: Suitable frontier found <--")
                     break
                 else:
-                    print("--> FFD: Suitable haven't been found yet <--")
+                    if self.debug_flag:
+                        print("--> FFD: Suitable haven't been found yet <--")
                 del self.global_pool_of_frontiers[0]
 
         else:
@@ -985,6 +985,17 @@ class FFDdetectorCLass:
             cv2.destroyAllWindows()  # close all windows
 
             # DEBUG END
+
+        # Checking if goal x, y is not [0, 0] <--> Planning the route for robot will fail
+        # If x or y == 0 --> Change them to 1
+
+        if int(goal["x"]/self.map_res) == 0:
+
+            goal["x"] = 1 * self.map_res
+
+        if int(goal["y"] / self.map_res) == 0:
+
+            goal["y"] = 1 * self.map_res
 
         return goal
 
