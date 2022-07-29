@@ -1133,14 +1133,12 @@ class TurtleBotSlamExplorer:
         #############################################################################
 
     # FOR NOW THIS IS NAIVE FRONTIER DETECTING ALGORITHM, RANDOMLY CHOSING UNKNOWN CELLS ON THE MAP
-    def naive_frontier_detection(self, raw_map_data_numpy_reshape: np.ndarray,
-                           raw_costmap_data_numpy_reshape: np.ndarray) -> dict:
+    def naive_frontier_detection(self, raw_map_data_numpy_reshape: np.ndarray, map_res) -> dict:
 
         # goal is to send turtlebot to the cell of the map with coordinates [raw_map_numpy["x"], -//-["y"]]
 
         # searching of unknown cells in map with low cost of going there (doesn't have walls or angles around it)
-        frontier_indices = np.where((raw_map_data_numpy_reshape == -1) &
-                                    (raw_costmap_data_numpy_reshape < 20))
+        frontier_indices = np.where(raw_map_data_numpy_reshape == -1)
 
         if not frontier_indices:
             rospy.loginfo('ERROR: Frontier finding!')
@@ -1148,7 +1146,8 @@ class TurtleBotSlamExplorer:
         rnd_i = randint(0, np.shape(frontier_indices)[1] - 1)  # random choose from all rows and columns in
         # raw_map_..._reshape, which contains -1
 
-        goal_coords = {"x": frontier_indices[1][rnd_i], "y": frontier_indices[0][rnd_i]}
+        goal_coords = {"x": frontier_indices[1][rnd_i]*map_res,
+                       "y": frontier_indices[0][rnd_i]*map_res}
 
         return goal_coords
 
@@ -1266,7 +1265,7 @@ class TurtleBotSlamExplorer:
                     frontier_detector = DFDdetectorClass(0.05, 0.9)       # init frontier detector class
 
                 elif self.frontier_detection_method == "FFD":
-                    frontier_detector = FFDdetectorCLass(False)                  # init frontier detector class
+                    frontier_detector = FFDdetectorCLass(debug_flag=False)     # init frontier detector class
 
                 raw_map = rospy.wait_for_message('/map', OccupancyGrid)  # get map with metadata
                 raw_map_data_numpy = np.asarray(raw_map.data)  # 1d map -> np.ndarray
@@ -1341,6 +1340,11 @@ class TurtleBotSlamExplorer:
                 # # END OF DEBUG
 
                 # (!) FRONTIER DETECTION PART
+
+                if self.frontier_detection_method == "naive":
+
+                    goal_coords = self.naive_frontier_detection(raw_map_data_numpy_reshape,
+                                                                raw_map.info.resolution)
 
                 if self.frontier_detection_method == "DFD":
 
@@ -1438,12 +1442,14 @@ class TurtleBotSlamExplorer:
 def main():
     rospy.init_node('slam_explorer_n')
 
+    # naive - naive random frontier detection method
     # DFD - Yamauchi Frontier Detection (YFD)
     # FFD - Fast Frontier Detection
-    # WFD - Wavefront Frontier Detection
 
+    slam_explorer = TurtleBotSlamExplorer("naive")
     # slam_explorer = TurtleBotSlamExplorer("DFD")
-    slam_explorer = TurtleBotSlamExplorer("FFD")
+    # slam_explorer = TurtleBotSlamExplorer("FFD")
+
     slam_explorer.explore()
 
 
