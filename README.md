@@ -13,12 +13,12 @@ What is Fast Frontier Detection (FFD): https://www.researchgate.net/publication/
 
 Results of autonomous navigation and mapping with DFD (Yamauchi):
 
-![Mapping room with slam_toolbox, actionlib and DFD](https://github.com/kipariss1/warehouse_robot/blob/develop_FFD/YFD.gif)
+![Mapping room with slam_toolbox, actionlib and DFD](https://github.com/kipariss1/warehouse_robot/blob/master/YFD.gif)
 
 Results of autonomous navigation and mapping with FFD (debug pictures on):
 
-![Mapping room with slam_toolbox, actionlib and FFD](https://github.com/kipariss1/warehouse_robot/blob/develop_FFD/Working_FFD-turtlebot_sim.gif)
+![Mapping room with slam_toolbox, actionlib and FFD](https://github.com/kipariss1/warehouse_robot/blob/master/Working_FFD-turtlebot_sim.gif)
 
 Results of autonomous navigation and mapping with FFD on the same map as DFD(debug pictures off):
 
-![Mapping room with slam_toolbox, actionlib and FFD](https://github.com/kipariss1/warehouse_robot/blob/develop_FFD/working_FFD_big_map.gif)
+![Mapping room with slam_toolbox, actionlib and FFD](https://github.com/kipariss1/warehouse_robot/master/develop_FFD/working_FFD_big_map.gif)
