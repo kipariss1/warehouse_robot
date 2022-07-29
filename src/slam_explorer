@@ -1443,7 +1443,7 @@ def main():
     rospy.init_node('slam_explorer_n')
 
     # naive - naive random frontier detection method
-    # DFD - Yamauchi Frontier Detection (YFD)
+    # DFD - Yamauchi Frontier Detection (YFD) 
     # FFD - Fast Frontier Detection
 
     slam_explorer = TurtleBotSlamExplorer("naive")
