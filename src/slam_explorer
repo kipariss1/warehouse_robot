@@ -1437,13 +1437,13 @@ class TurtleBotSlamExplorer:
 
             print("(*) This is last 10 goal statuses: ", self.status_buffer, "\n")
             print("(*) This is timestamps of last 10 goal statuses: ", self.status_buffer_timestamp, "\n")
-
+    
 
 def main():
     rospy.init_node('slam_explorer_n')
 
     # naive - naive random frontier detection method
-    # DFD - Yamauchi Frontier Detection (YFD) 
+    # DFD - Yamauchi Frontier Detection (YFD)
     # FFD - Fast Frontier Detection
 
     slam_explorer = TurtleBotSlamExplorer("naive")
