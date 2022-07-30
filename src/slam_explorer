@@ -15,8 +15,7 @@ import copy
 from math import sqrt, sin, cos, pi, atan2, asin
 import skimage
 import cv2
-from visualization_msgs.msg import Marker  # for custom markers in RViz
-from std_msgs.msg import Header, ColorRGBA  # for custom markers in RViz
+from datetime import datetime
 
 
 # datatype for storing the cluster
@@ -1002,7 +1001,7 @@ class FFDdetectorCLass:
 
 class TurtleBotSlamExplorer:
 
-    def __init__(self, frontier_detection_method):
+    def __init__(self, frontier_detection_method, log_the_experiment_flag):
 
         # DFD - Yamauchi Frontier Detection (YFD)
         # FFD - Fast Frontier Detection
@@ -1038,6 +1037,8 @@ class TurtleBotSlamExplorer:
         self.t_diff_goals = 0.1         # [s] due to goal slippering - required time difference between sending goals
 
         self.state = 0                  # state enumerator for state machine in self.explore()
+
+        self.log_the_experiment_flag = log_the_experiment_flag
 
     # FUNCTION, WHICH MAKES NEW FRAME BY TRANSFORMING FROM OLD AND SENDS IT OUT TO BUFFER
     def add_new_transformed_frame(self, parent_frame_id: str, child_frame_id: str, translation: dict, rotation: dict):
@@ -1251,6 +1252,20 @@ class TurtleBotSlamExplorer:
     # THIS IS MAIN FUNCTION OF CLASS, IT IMPLEMENTS AUTONOMOUS EXPLORATION
     def explore(self):
 
+        # INITIALISING THINGS FOR LOGGING THE DATA
+        if self.log_the_experiment_flag:
+
+            name_of_experiment = str(input("Type in the name of experiment: "))
+            n_of_experiment = str(input("Type in the number of experiment: "))
+            date_time_str = datetime.now().strftime("%d_%m_%Y__%H_%M_%S")
+            log_of_exp = pd.DataFrame([], columns=["N of iteration", "Number of discovered cells",
+                                                   "Number of newly discovered cells",
+                                                   "Pose of robot in origin frame", "Pose of origin in map frame",
+                                                   "Map resolution", "Time passed"])
+            previous_number_of_discovered_cells = 0
+            time_beginning = datetime.now()
+            n_of_iteration = 0
+
         while not rospy.is_shutdown():
 
             # "INIT" STATE
@@ -1437,7 +1452,30 @@ class TurtleBotSlamExplorer:
 
             print("(*) This is last 10 goal statuses: ", self.status_buffer, "\n")
             print("(*) This is timestamps of last 10 goal statuses: ", self.status_buffer_timestamp, "\n")
-    
+
+            # LOGGING ALL THE INFORMATION ABOUT ITERATION OF AUTONOMOUS EXPLORING
+            if self.log_the_experiment_flag:
+
+                number_of_discovered_cells = np.where(raw_map_data_numpy_reshape != -1)[0].shape[0]
+                number_of_newly_discovered_cells = number_of_discovered_cells - previous_number_of_discovered_cells\
+                    if number_of_discovered_cells - previous_number_of_discovered_cells > 0 else 0
+                previous_number_of_discovered_cells = number_of_discovered_cells
+                time_diff = datetime.now() - time_beginning
+                time_passed_str = str(int(time_diff.total_seconds()) // 60)+":"+str(int(time_diff.total_seconds()) % 60)
+                n_of_iteration += 1
+
+                new_row = pd.DataFrame([[n_of_iteration, number_of_discovered_cells, number_of_newly_discovered_cells,
+                                         pose_of_robot_m, raw_map_origin_pos, raw_map_resolution, time_passed_str]],
+                                       columns=["N of iteration", "Number of discovered cells",
+                                                "Number of newly discovered cells",
+                                                "Pose of robot in origin frame", "Pose of origin in map frame",
+                                                "Map resolution", "Time passed"])
+
+                log_of_exp = pd.concat([log_of_exp, new_row])
+                path = "~/catkin_ws/src/a2b_controller/logs/"
+                log_of_exp.to_csv(path + "_" + name_of_experiment + "_" + self.frontier_detection_method
+                                  + "_" + n_of_experiment + "_" + date_time_str + ".csv")
+
 
 def main():
     rospy.init_node('slam_explorer_n')
@@ -1446,9 +1484,9 @@ def main():
     # DFD - Yamauchi Frontier Detection (YFD)
     # FFD - Fast Frontier Detection
 
-    slam_explorer = TurtleBotSlamExplorer("naive")
-    # slam_explorer = TurtleBotSlamExplorer("DFD")
-    # slam_explorer = TurtleBotSlamExplorer("FFD")
+    # slam_explorer = TurtleBotSlamExplorer("naive", log_the_experiment_flag=True)
+    # slam_explorer = TurtleBotSlamExplorer("DFD", log_the_experiment_flag=True)
+    slam_explorer = TurtleBotSlamExplorer("FFD", log_the_experiment_flag=True)
 
     slam_explorer.explore()
 
