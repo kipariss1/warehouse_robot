@@ -1492,10 +1492,6 @@ class TurtleBotSlamExplorer:
                             img_3d)
 
 
-
-
-
-
 def main():
     rospy.init_node('slam_explorer_n')
 

@@ -3,6 +3,8 @@
 <launch>
 	<arg name="launch_gazebo" default="false" doc="Launch simulation or not"/>
 	
+	<arg name="record_robot_pos" default="false" />
+	
 <!--	<include file="$(find turtlebot3_gazebo)/launch/turtlebot3_house.launch" if="$(arg launch_gazebo)"/> -->
 	
 	<include file="$(find turtlebot3_gazebo)/launch/test_room_world.launch" if="$(arg launch_gazebo)"/>   
@@ -22,6 +24,11 @@
   	
   	<node pkg="rviz" type="rviz" name="rviz" required="true"
         	args="-d $(find turtlebot3_navigation)/rviz/turtlebot3_navigation.rviz"/>
+        	
+        
+	 <node pkg="rosbag" type="record" name="rosbag_record_robot_pos"
+	       args="-o $HOME/catkin_ws/src/a2b_controller/logs/robot_pos /odom/pose/pose"
+	       if="$(arg record_robot_pos)" />
 	
 	<node pkg="a2b_controller" type="slam_explorer" name="slam_explorer_n" output="screen"/>
 	
