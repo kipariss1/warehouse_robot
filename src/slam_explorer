@@ -1006,7 +1006,6 @@ class TurtleBotSlamExplorer:
 
         # DFD - Yamauchi Frontier Detection (YFD)
         # FFD - Fast Frontier Detection
-        # WFD - Wavefront Frontier Detection
         self.frontier_detection_method = frontier_detection_method
 
         self.rate = rospy.Rate(5)  # rate of message sending is 10 Hz
@@ -1485,11 +1484,12 @@ class TurtleBotSlamExplorer:
                 img_3d = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
 
                 # highlighting the robot's pose
-                img_3d[pose_of_robot_pix["j"], pose_of_robot_pix["i"], :] = np.array([255, 0, 0])
+                img_3d[pose_of_robot_pix["j"], pose_of_robot_pix["i"], :] = np.array([0, 0, 255])
 
-                # saving the image of map
+                # saving the image of map to ~/.ros/
                 cv2.imwrite("Map_" + name_of_experiment + "_" + self.frontier_detection_method
-                            + "_" + n_of_experiment + "." + str(n_of_iteration) + "_" + date_time_str + ".jpg", img_3d)
+                            + "_" + n_of_experiment + "." + str(n_of_iteration) + "_" + date_time_str + ".png",
+                            img_3d)
 
 
 
