@@ -14,7 +14,8 @@ find_package(catkin REQUIRED
              nav_msgs
              rospy
              tf2_ros
-             rosbag)
+             rosbag
+             rostopic)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -108,7 +109,7 @@ find_package(catkin REQUIRED
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES a2b_controller
-  CATKIN_DEPENDS actionlib geometry_msgs move_base_msgs nav_msgs rospy tf2_ros rosbag
+  CATKIN_DEPENDS actionlib geometry_msgs move_base_msgs nav_msgs rospy tf2_ros rosbag rostopic
 #  DEPENDS system_lib
 )
 

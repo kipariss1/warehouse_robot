@@ -26,9 +26,13 @@
         	args="-d $(find turtlebot3_navigation)/rviz/turtlebot3_navigation.rviz"/>
         	
         
-	 <node pkg="rosbag" type="record" name="rosbag_record_robot_pos"
-	       args="-o $HOME/catkin_ws/src/a2b_controller/logs/robot_pos /odom/pose/pose"
-	       if="$(arg record_robot_pos)" />
+<!--	 <node pkg="rosbag" type="record" name="rosbag_record_robot_pos"
+	       args="-o $HOME/catkin_ws/src/a2b_controller/logs/robot_pos /odom"
+	       if="$(arg record_robot_pos)" />  -->
+	       
+<!--	<node name="pos_topic" pkg="rostopic" type="rostopic" output="screen" 
+	       args="echo -p /odom/pose/pose/position > ~/catkin_ws/src/a2bcontroller/logs/buffer.csv"
+	       if="$(arg record_robot_pos)"/>  -->
 	
 	<node pkg="a2b_controller" type="slam_explorer" name="slam_explorer_n" output="screen"/>
 	
