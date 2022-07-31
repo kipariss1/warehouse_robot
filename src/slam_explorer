@@ -16,6 +16,7 @@ from math import sqrt, sin, cos, pi, atan2, asin
 import skimage
 import cv2
 from datetime import datetime
+import os
 
 
 # datatype for storing the cluster
@@ -1475,6 +1476,24 @@ class TurtleBotSlamExplorer:
                 path = "~/catkin_ws/src/a2b_controller/logs/"
                 log_of_exp.to_csv(path + "_" + name_of_experiment + "_" + self.frontier_detection_method
                                   + "_" + n_of_experiment + "_" + date_time_str + ".csv")
+
+                # Preparing the map image for being saved:
+
+                img = copy.deepcopy(raw_map_data_numpy_reshape).astype(np.uint8)
+
+                # change map from grayscale to bgr (map will stay the same, but i can add colours for debug)
+                img_3d = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+
+                # highlighting the robot's pose
+                img_3d[pose_of_robot_pix["j"], pose_of_robot_pix["i"], :] = np.array([255, 0, 0])
+
+                # saving the image of map
+                cv2.imwrite("Map_" + name_of_experiment + "_" + self.frontier_detection_method
+                            + "_" + n_of_experiment + "." + str(n_of_iteration) + "_" + date_time_str + ".jpg", img_3d)
+
+
+
+
 
 
 def main():
