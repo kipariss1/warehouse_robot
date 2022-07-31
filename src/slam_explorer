@@ -1488,7 +1488,7 @@ class TurtleBotSlamExplorer:
 
                 # saving the image of map to ~/.ros/
                 cv2.imwrite("Map_" + name_of_experiment + "_" + self.frontier_detection_method
-                            + "_" + n_of_experiment + "." + str(n_of_iteration) + "_" + date_time_str + ".png",
+                            + "_" + n_of_experiment + "_" + str(n_of_iteration) + "_" + date_time_str + ".png",
                             img_3d)
 
 
