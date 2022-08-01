@@ -11,6 +11,9 @@ import json
 
 def main():
 
+    name_of_method = "FFD"
+    n_of_experiment = " 1"
+
     path = os.getcwd()
     csv_files = glob.glob(os.path.join(path, "*.csv"))
 
@@ -55,7 +58,7 @@ def main():
                         top=0.9,
                         wspace=0.4,
                         hspace=0.3)
-    plt.suptitle("Number of discovered cells with FFD", fontweight="bold")
+    plt.suptitle("Number of discovered cells with "+name_of_method + " №" + n_of_experiment, fontweight="bold")
 
     # TODO: save the plot into "Results of evaluation" folder
 
@@ -107,7 +110,7 @@ def main():
                         top=0.9,
                         wspace=0.4,
                         hspace=0.3)
-    plt.suptitle("Velocity of discovering cells with FFD", fontweight="bold")
+    plt.suptitle("Velocity of discovering cells with " + name_of_method + " №" + n_of_experiment, fontweight="bold")
 
     # TODO: save the plot into "Results of evaluation" folder
 
@@ -175,18 +178,35 @@ def main():
             previous_rob_pos_org_frame_m["x"] = curr_rob_pos_org_frame_m["x"]
             previous_rob_pos_org_frame_m["y"] = curr_rob_pos_org_frame_m["y"]
 
-    print(total_path_m)
-
     fig3 = plt.figure(3)
+    fig3.set_size_inches(20 / 2.54, 20 / 2.54)  # 20x20 cm size
     map_img = plt.imread('last_map.png')
     ax = plt.subplot(111)
     ax.plot(rob_pos_org_frame_pix_i, rob_pos_org_frame_pix_j, 'r-')
     ax.imshow(map_img, zorder=0)
+    ax.set_ylabel("Height of the map [pix], res="+str(round(map_res, 2)))
+    ax.set_xlabel("Width of the map [pix], res=" + str(round(map_res, 2)))
+    plt.suptitle("Path of robot with " + name_of_method + " №" + n_of_experiment +
+                 f" , total path = {round(total_path_m, 2)} [m]",
+                 fontweight="bold")
 
 
 
     # For showing all plots
-    plt.show()  # showing plot
+    # plt.show()  # showing plot
+
+    time = time_passed[-1].strftime("%M:%S")
+    mean = float(round(pd.Series(vel_of_opening_cells).mean(), 2))
+    median = float(round(pd.Series(vel_of_opening_cells).median(), 2))
+
+    print("                                             ||RESULTS||                                                            ")
+    print("_|___________________|____________________|_________________|___________|___________________|_____________________|_")
+    print(" | N of opened cells | Length of the path | N of iterations |    Time   | Mean vel [cell/s] | Median vel [cell/s] | ")
+    print("-|-------------------|--------------------|-----------------|-----------|-------------------|---------------------|-")
+    print(f" |    {number_of_discovered_cells.iloc[-1]}           |       {round(total_path_m, 2)}        |       "
+          f"{n_of_iteration.iloc[-1]}        |   {time}   |      {mean}      "
+          f"  |         {median}         | ")
+    print("-|-------------------|--------------------|-----------------|-----------|-------------------|---------------------|-")
 
 
 if __name__ == '__main__':
