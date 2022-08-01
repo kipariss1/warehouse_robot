@@ -162,7 +162,7 @@ def main():
             # calculating coords in origin frame in [pix]
 
             curr_rob_pos_org_frame_pix["i"] = int(curr_rob_pos_org_frame_m["x"]/map_res)
-            curr_rob_pos_org_frame_pix["j"] = int(curr_rob_pos_org_frame_m["x"] / map_res)
+            curr_rob_pos_org_frame_pix["j"] = int(curr_rob_pos_org_frame_m["y"] / map_res)
 
             rob_pos_org_frame_pix_i.append(curr_rob_pos_org_frame_pix["i"])
             rob_pos_org_frame_pix_j.append(curr_rob_pos_org_frame_pix["j"])
@@ -180,7 +180,7 @@ def main():
     fig3 = plt.figure(3)
     map_img = plt.imread('last_map.png')
     ax = plt.subplot(111)
-    ax.plot(rob_pos_org_frame_pix_i, rob_pos_org_frame_pix_j, 'xr-')
+    ax.plot(rob_pos_org_frame_pix_i, rob_pos_org_frame_pix_j, 'r-')
     ax.imshow(map_img, zorder=0)
 
 
