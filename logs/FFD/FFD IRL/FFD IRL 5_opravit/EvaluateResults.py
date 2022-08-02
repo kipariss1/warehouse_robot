@@ -11,8 +11,10 @@ import json
 
 def main():
 
-    name_of_method = "FFD"
-    n_of_experiment = " 1"
+    name_of_method = str(input("Method: "))
+    n_of_experiment = str(input("№ of experiment: "))
+    env_of_exp = str(input("IRL or SIM? : "))
+    save_figure_flag = str(input("Save graphs? : "))
 
     path = os.getcwd()
     csv_files = glob.glob(os.path.join(path, "*.csv"))
@@ -60,7 +62,9 @@ def main():
                         hspace=0.3)
     plt.suptitle("Number of discovered cells with "+name_of_method + " №" + n_of_experiment, fontweight="bold")
 
-    # TODO: save the plot into "Results of evaluation" folder
+    if save_figure_flag == "Y" or save_figure_flag == "Yes":
+        fig1.savefig(os.path.join(path, "Results/NumOfDiscCellsGraph"+name_of_method+"№"+
+                                  n_of_experiment+"_"+env_of_exp+".png"))
 
     # PLOTTING THE VELOCITY OF OPENING NEW CELLS:
 
@@ -112,7 +116,9 @@ def main():
                         hspace=0.3)
     plt.suptitle("Velocity of discovering cells with " + name_of_method + " №" + n_of_experiment, fontweight="bold")
 
-    # TODO: save the plot into "Results of evaluation" folder
+    if save_figure_flag == "Y" or save_figure_flag == "Yes":
+        fig2.savefig(os.path.join(path, "Results/VelOfDiscCellsGraph"+name_of_method+"№"+n_of_experiment+
+                                  "_"+env_of_exp+".png"))
 
     # PLOTTING PATH ON THE LAST MAP
 
@@ -190,23 +196,42 @@ def main():
                  f" , total path = {round(total_path_m, 2)} [m]",
                  fontweight="bold")
 
+    if save_figure_flag == "Y" or save_figure_flag == "Yes":
+        fig3.savefig(os.path.join(path, "Results/TotalPathOfRobot"+name_of_method+"№"+n_of_experiment+
+                                  "_"+env_of_exp+".png"))
 
 
     # For showing all plots
-    plt.show()  # showing plot
+    if save_figure_flag != "Y" and save_figure_flag != "Yes":
+        plt.show()  # showing plot
 
     time = time_passed[-1].strftime("%M:%S")
     mean = float(round(pd.Series(vel_of_opening_cells).mean(), 2))
     median = float(round(pd.Series(vel_of_opening_cells).median(), 2))
 
-    print("                                             ||RESULTS||                                                            ")
-    print("_|___________________|____________________|_________________|___________|___________________|_____________________|_")
-    print(" | N of opened cells | Length of the path | N of iterations |    Time   | Mean vel [cell/s] | Median vel [cell/s] | ")
-    print("-|-------------------|--------------------|-----------------|-----------|-------------------|---------------------|-")
-    print(f" |    {number_of_discovered_cells.iloc[-1]}           |       {round(total_path_m, 2)}        |       "
-          f"{n_of_iteration.iloc[-1]}        |   {time}   |      {mean}      "
-          f"  |         {median}         | ")
-    print("-|-------------------|--------------------|-----------------|-----------|-------------------|---------------------|-")
+    if save_figure_flag != "Y" and save_figure_flag != "Yes":
+        print("                                             ||RESULTS||                                                            ")
+        print("_|___________________|____________________|_________________|___________|___________________|_____________________|_")
+        print(" | N of opened cells | Length of the path | N of iterations |    Time   | Mean vel [cell/s] | Median vel [cell/s] | ")
+        print("-|-------------------|--------------------|-----------------|-----------|-------------------|---------------------|-")
+        print(f" |    {number_of_discovered_cells.iloc[-1]}           |       {round(total_path_m, 2)}        |       "
+              f"{n_of_iteration.iloc[-1]}        |   {time}   |      {mean}      "
+              f"  |         {median}         | ")
+        print("-|-------------------|--------------------|-----------------|-----------|-------------------|---------------------|-")
+
+    else:
+
+        results = f"""
+                                                     ||RESULTS||                                                            \n
+        _|___________________|____________________|_________________|___________|___________________|_____________________|_\n
+         | N of opened cells | Length of the path | N of iterations |    Time   | Mean vel [cell/s] | Median vel [cell/s] | \n
+        -|-------------------|--------------------|-----------------|-----------|-------------------|---------------------|-\n 
+         |    {number_of_discovered_cells.iloc[-1]}           |       {round(total_path_m, 2)}        |       {n_of_iteration.iloc[-1]}        |   {time}   |      {mean}        |         {median}         | \n                  
+        -|-------------------|--------------------|-----------------|-----------|-------------------|---------------------|-
+        """
+
+        with open(os.path.join(path, "Results/Results.txt"), 'w') as file:
+            file.write(results)
 
 
 if __name__ == '__main__':
