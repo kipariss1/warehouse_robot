@@ -1499,9 +1499,9 @@ def main():
     # DFD - Yamauchi Frontier Detection (YFD)
     # FFD - Fast Frontier Detection
 
-    # slam_explorer = TurtleBotSlamExplorer("naive", log_the_experiment_flag=True)
+    slam_explorer = TurtleBotSlamExplorer("naive", log_the_experiment_flag=True)
     # slam_explorer = TurtleBotSlamExplorer("DFD", log_the_experiment_flag=True)
-    slam_explorer = TurtleBotSlamExplorer("FFD", log_the_experiment_flag=True)
+    # slam_explorer = TurtleBotSlamExplorer("FFD", log_the_experiment_flag=True)
 
     slam_explorer.explore()
 
