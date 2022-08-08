@@ -1,0 +1,4 @@
+,N of oppened cells,Length of the path,N of iterations,Time,Mean vel[cell/s],Median vel [cell/s
+naive,4925,69.3,56,21:29,6.1,0
+DFD,4994,106.32,147,12:15,5.37,0.2
+FFD,5161,97.66,69,09:36,10.92,0.3
