@@ -70,7 +70,7 @@ def main():
 
     number_of_newly_discovered_cells = map_iters_metadata_df.loc[:, 'Number of newly discovered cells']
     num_of_newl_open_cells = pd.concat([number_of_newly_discovered_cells, pd.Series(time_passed), n_of_iteration], axis=1)
-    num_of_newl_open_cells = num_of_newl_open_cells[num_of_newl_open_cells["Number of newly discovered cells"] != 0]
+    # num_of_newl_open_cells = num_of_newl_open_cells[num_of_newl_open_cells["Number of newly discovered cells"] != 0]
 
     # Calculating velocity:
     previous_n_of_open_cells = 0
